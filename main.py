@@ -34,7 +34,7 @@ if __name__ == "__main__":
     settings = get_settings()
     uvicorn.run(
         "main:app",
-        host="127.0.0.1",  # Changed from "0.0.0.0"
+        host="127.0.0.1",
         port=settings.port,
         reload=settings.environment == "development"
     )
