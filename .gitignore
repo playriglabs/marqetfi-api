@@ -29,3 +29,8 @@ logs/
 # Temporary
 tmp/
 temp/
+
+# AI RULES
+.cursor
+.beads
+.sdd

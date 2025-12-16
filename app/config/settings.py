@@ -58,11 +58,26 @@ class Settings(BaseSettings):
     DOCS_URL: str | None = "/docs"
     REDOC_URL: str | None = "/redoc"
 
-    # Ostium Settings
+    # Provider Selection
+    TRADING_PROVIDER: str = "ostium"
+    PRICE_PROVIDER: str = "ostium"
+    SETTLEMENT_PROVIDER: str = "ostium"
+
+    # Ostium Settings (backward compatible)
     private_key: str = ""
     rpc_url: str = ""
     network: str = "testnet"
     ostium_verbose: bool = False
+
+    # Ostium Provider Settings (new format)
+    ostium_enabled: bool = True
+    ostium_private_key: str = ""
+    ostium_rpc_url: str = ""
+    ostium_network: str = "testnet"
+    ostium_slippage_percentage: float = 1.0
+    ostium_timeout: int = 30
+    ostium_retry_attempts: int = 3
+    ostium_retry_delay: float = 1.0
 
     class Config:
         """Pydantic config."""
@@ -72,19 +87,23 @@ class Settings(BaseSettings):
         case_sensitive = True
 
     def get_ostium_network_config(self):
-        """Get Ostium network config."""
-        if self.network.lower() == "testnet":
+        """Get Ostium network config (backward compatible)."""
+        network = self.ostium_network or self.network
+        if network.lower() == "testnet":
             return NetworkConfig.testnet()
         return NetworkConfig.mainnet()
 
     def create_ostium_sdk(self):
-        """Create Ostium SDK instance."""
+        """Create Ostium SDK instance (backward compatible)."""
         config = self.get_ostium_network_config()
+        private_key = self.ostium_private_key or self.private_key
+        rpc_url = self.ostium_rpc_url or self.rpc_url
+        verbose = self.ostium_verbose
         return OstiumSDK(
             config,
-            self.private_key,
-            self.rpc_url,
-            verbose=self.ostium_verbose
+            private_key,
+            rpc_url,
+            verbose=verbose,
         )
 
 
