@@ -1,0 +1,29 @@
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+
+# Code Quality
+black
+isort
+ruff
+mypy
+pre-commit
+flake8
+flake8-docstrings
+flake8-bugbear
+
+# Security
+bandit
+safety>=2.3.0
+
+# Documentation
+interrogate
+
+# Database
+aiosqlite
+
+# Type Stubs
+types-redis
+

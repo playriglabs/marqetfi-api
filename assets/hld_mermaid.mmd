@@ -1,0 +1,68 @@
+graph TB
+    subgraph Client["Client Layer"]
+        WebApp["Web Application<br/>React/Next.js"]
+        MobileApp["Mobile App<br/>React Native"]
+    end
+
+    subgraph Gateway["API Gateway Layer"]
+        APIGateway["API Gateway FastAPI<br/>Rate Limiting & Auth"]
+    end
+
+    subgraph Auth["Authentication & Identity"]
+        AuthService["Auth Service<br/>Email/Google/Apple"]
+        WalletSDK["Dynamic Wallet SDK<br/>MPC Wallet Creation"]
+    end
+
+    subgraph Core["Core Services - Python"]
+        WalletService["Wallet Service<br/>Balance & Key Management"]
+        TradingService["Trading Service<br/>Order & Position Management"]
+        SettlementService["Settlement Service<br/>Trade Execution"]
+        PriceFeedService["Price Feed Service<br/>Real-time Market Data"]
+    end
+
+    subgraph External["External Infrastructure"]
+        PostgreSQL["PostgreSQL<br/>User & Trade Data"]
+        RabbitMQ["Message Queue<br/>RabbitMQ/Celery"]
+        Ostium["Ostium Protocol<br/>Liquidity Provider"]
+        Arbitrum["Arbitrum Network<br/>USDC Settlement"]
+        Redis["Redis Cache<br/>& Sessions"]
+    end
+
+    subgraph Support["Support Services"]
+        RiskMgmt["Risk Management<br/>Limits & Margin"]
+        Analytics["Analytics<br/>P&L & Reporting"]
+    end
+
+    WebApp --> APIGateway
+    MobileApp --> APIGateway
+    APIGateway --> AuthService
+    APIGateway --> TradingService
+    AuthService --> WalletSDK
+    WalletSDK --> WalletService
+    TradingService --> SettlementService
+    TradingService --> PriceFeedService
+    WalletService <--> PostgreSQL
+    WalletService <--> RabbitMQ
+    TradingService <--> PostgreSQL
+    TradingService <--> RabbitMQ
+    SettlementService <--> RabbitMQ
+    SettlementService <--> Ostium
+    SettlementService <--> Arbitrum
+    PriceFeedService <--> Redis
+    Analytics <--> PostgreSQL
+    Analytics <--> RiskMgmt
+
+    classDef client fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef gateway fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef auth fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef core fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef external fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef support fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class WebApp,MobileApp client
+    class APIGateway gateway
+    class AuthService,WalletSDK auth
+    class WalletService,TradingService,SettlementService,PriceFeedService core
+    class PostgreSQL,RabbitMQ,Ostium,Arbitrum,Redis external
+    class RiskMgmt,Analytics support
+

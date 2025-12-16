@@ -1,6 +1,33 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
-python-dotenv==1.0.0
+# Core
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+email-validator
+
+# Database
+sqlalchemy
+asyncpg
+alembic
+aiosqlite
+
+# Redis & Celery
+redis
+celery
+
+# Security
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+# Logging
+loguru
+
+# HTTP Client
+httpx
+
+# CLI
+typer
+
+# Ostium SDK
 ostium-python-sdk

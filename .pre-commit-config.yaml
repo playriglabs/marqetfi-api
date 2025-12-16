@@ -1,0 +1,72 @@
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Ruff - fast Python linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # Black - code formatter
+  - repo: https://github.com/psf/black
+    rev: 24.2.0
+    hooks:
+      - id: black
+        language_version: python3.11
+        args: ['--line-length=100']
+
+  # isort - import sorter
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ['--profile=black', '--line-length=100']
+
+  # mypy - type checker
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [
+          types-all,
+          pydantic,
+          pydantic-settings,
+          sqlalchemy,
+          asyncpg,
+          redis,
+          celery,
+        ]
+        args: [
+          '--python-version=3.11',
+          '--warn-return-any',
+          '--warn-unused-configs',
+          '--disallow-untyped-defs',
+          '--disallow-incomplete-defs',
+          '--check-untyped-defs',
+          '--no-implicit-optional',
+          '--warn-redundant-casts',
+          '--warn-unused-ignores',
+          '--warn-no-return',
+          '--strict-equality',
+        ]
+        exclude: ^(tests/|migrations/)
+
+default_language_version:
+  python: python3.11
+
