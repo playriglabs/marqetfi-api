@@ -1,0 +1,165 @@
+"""Factory for creating provider instances."""
+
+from functools import lru_cache
+from typing import Any
+
+from app.config.providers.ostium import OstiumConfig
+from app.services.providers.base import (
+    BasePriceProvider,
+    BaseSettlementProvider,
+    BaseTradingProvider,
+)
+from app.services.providers.exceptions import ExternalServiceError
+from app.services.providers.registry import ProviderRegistry
+
+# Import providers to trigger auto-registration
+from app.services.providers import ostium  # noqa: F401
+
+
+class ProviderFactory:
+    """Factory for creating provider instances."""
+
+    _trading_provider_cache: dict[str, BaseTradingProvider] = {}
+    _price_provider_cache: dict[str, BasePriceProvider] = {}
+    _settlement_provider_cache: dict[str, BaseSettlementProvider] = {}
+
+    @classmethod
+    def _get_provider_config(cls, provider_name: str) -> Any:
+        """Get provider configuration based on provider name."""
+        # This would be extended to support multiple providers
+        if provider_name == "ostium":
+            from app.config import get_settings
+
+            settings = get_settings()
+            # Use new format if available, fall back to old format for backward compatibility
+            private_key = (
+                settings.ostium_private_key
+                if hasattr(settings, "ostium_private_key") and settings.ostium_private_key
+                else settings.private_key
+            )
+            rpc_url = (
+                settings.ostium_rpc_url
+                if hasattr(settings, "ostium_rpc_url") and settings.ostium_rpc_url
+                else settings.rpc_url
+            )
+            network = (
+                settings.ostium_network
+                if hasattr(settings, "ostium_network") and settings.ostium_network
+                else settings.network
+            )
+
+            return OstiumConfig(
+                enabled=getattr(settings, "ostium_enabled", True),
+                private_key=private_key,
+                rpc_url=rpc_url,
+                network=network,
+                verbose=getattr(settings, "ostium_verbose", False),
+                slippage_percentage=getattr(
+                    settings, "ostium_slippage_percentage", 1.0
+                ),
+                timeout=getattr(settings, "ostium_timeout", 30),
+                retry_attempts=getattr(settings, "ostium_retry_attempts", 3),
+                retry_delay=getattr(settings, "ostium_retry_delay", 1.0),
+            )
+
+        raise ValueError(f"Unknown provider: {provider_name}")
+
+    @classmethod
+    async def get_trading_provider(
+        cls, provider_name: str | None = None
+    ) -> BaseTradingProvider:
+        """Get configured trading provider instance."""
+        if provider_name is None:
+            from app.config import get_settings
+
+            settings = get_settings()
+            provider_name = getattr(settings, "TRADING_PROVIDER", "ostium")
+
+        # Check cache
+        if provider_name in cls._trading_provider_cache:
+            return cls._trading_provider_cache[provider_name]
+
+        # Get provider class
+        provider_class = ProviderRegistry.get_trading_provider(provider_name)
+        if not provider_class:
+            raise ExternalServiceError(
+                f"Trading provider '{provider_name}' not found. "
+                f"Available: {ProviderRegistry.list_trading_providers()}"
+            )
+
+        # Get config and create instance
+        config = cls._get_provider_config(provider_name)
+        provider = provider_class(config)
+
+        # Initialize and cache
+        await provider.initialize()
+        cls._trading_provider_cache[provider_name] = provider
+
+        return provider
+
+    @classmethod
+    async def get_price_provider(
+        cls, provider_name: str | None = None
+    ) -> BasePriceProvider:
+        """Get configured price provider instance."""
+        if provider_name is None:
+            from app.config import get_settings
+
+            settings = get_settings()
+            provider_name = getattr(settings, "PRICE_PROVIDER", "ostium")
+
+        # Check cache
+        if provider_name in cls._price_provider_cache:
+            return cls._price_provider_cache[provider_name]
+
+        # Get provider class
+        provider_class = ProviderRegistry.get_price_provider(provider_name)
+        if not provider_class:
+            raise ExternalServiceError(
+                f"Price provider '{provider_name}' not found. "
+                f"Available: {ProviderRegistry.list_price_providers()}"
+            )
+
+        # Get config and create instance
+        config = cls._get_provider_config(provider_name)
+        provider = provider_class(config)
+
+        # Initialize and cache
+        await provider.initialize()
+        cls._price_provider_cache[provider_name] = provider
+
+        return provider
+
+    @classmethod
+    async def get_settlement_provider(
+        cls, provider_name: str | None = None
+    ) -> BaseSettlementProvider:
+        """Get configured settlement provider instance."""
+        if provider_name is None:
+            from app.config import get_settings
+
+            settings = get_settings()
+            provider_name = getattr(settings, "SETTLEMENT_PROVIDER", "ostium")
+
+        # Check cache
+        if provider_name in cls._settlement_provider_cache:
+            return cls._settlement_provider_cache[provider_name]
+
+        # Get provider class
+        provider_class = ProviderRegistry.get_settlement_provider(provider_name)
+        if not provider_class:
+            raise ExternalServiceError(
+                f"Settlement provider '{provider_name}' not found. "
+                f"Available: {ProviderRegistry.list_settlement_providers()}"
+            )
+
+        # Get config and create instance
+        config = cls._get_provider_config(provider_name)
+        provider = provider_class(config)
+
+        # Initialize and cache
+        await provider.initialize()
+        cls._settlement_provider_cache[provider_name] = provider
+
+        return provider
+

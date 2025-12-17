@@ -6,6 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.services.price_feed_service import PriceFeedService
+from app.services.providers.factory import ProviderFactory
+from app.services.settlement_service import SettlementService
+from app.services.trading_service import TradingService
 
 security = HTTPBearer()
 
@@ -47,4 +51,40 @@ async def get_current_active_user(
     """Get current active user."""
     # TODO: Check if user is active
     return current_user
+
+
+async def get_trading_provider():
+    """Get configured trading provider."""
+    return await ProviderFactory.get_trading_provider()
+
+
+async def get_price_provider():
+    """Get configured price provider."""
+    return await ProviderFactory.get_price_provider()
+
+
+async def get_settlement_provider():
+    """Get configured settlement provider."""
+    return await ProviderFactory.get_settlement_provider()
+
+
+async def get_trading_service(
+    trading_provider=Depends(get_trading_provider),
+) -> TradingService:
+    """Get trading service instance."""
+    return TradingService(trading_provider)
+
+
+async def get_settlement_service(
+    settlement_provider=Depends(get_settlement_provider),
+) -> SettlementService:
+    """Get settlement service instance."""
+    return SettlementService(settlement_provider)
+
+
+async def get_price_feed_service(
+    price_provider=Depends(get_price_provider),
+) -> PriceFeedService:
+    """Get price feed service instance."""
+    return PriceFeedService(price_provider)
 
