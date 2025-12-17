@@ -60,20 +60,18 @@ class OstiumSettlementProvider(BaseSettlementProvider):
             )
 
             return {
-                "transaction_hash": receipt["transactionHash"].hex()
-                if hasattr(receipt["transactionHash"], "hex")
-                else str(receipt["transactionHash"]),
+                "transaction_hash": (
+                    receipt["transactionHash"].hex()
+                    if hasattr(receipt["transactionHash"], "hex")
+                    else str(receipt["transactionHash"])
+                ),
                 "status": "executed",
             }
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "execute_trade")
-            raise SettlementProviderError(
-                str(error), service_name=self.service_name
-            ) from e
+            raise SettlementProviderError(str(error), service_name=self.service_name) from e
 
-    async def get_transaction_status(
-        self, transaction_hash: str
-    ) -> dict[str, Any]:
+    async def get_transaction_status(self, transaction_hash: str) -> dict[str, Any]:
         """Get status of a transaction."""
         try:
             await self.ostium_service.initialize()
@@ -81,7 +79,6 @@ class OstiumSettlementProvider(BaseSettlementProvider):
             # Note: Ostium SDK may not have direct transaction status check
             # This would need to be implemented based on SDK capabilities
             # For now, return a placeholder
-            import asyncio
 
             # Try to get transaction receipt from web3
             # This is a placeholder - actual implementation depends on SDK
@@ -90,10 +87,5 @@ class OstiumSettlementProvider(BaseSettlementProvider):
                 "status": "pending",  # Would need actual implementation
             }
         except Exception as e:
-            error = self.ostium_service.handle_service_error(
-                e, "get_transaction_status"
-            )
-            raise SettlementProviderError(
-                str(error), service_name=self.service_name
-            ) from e
-
+            error = self.ostium_service.handle_service_error(e, "get_transaction_status")
+            raise SettlementProviderError(str(error), service_name=self.service_name) from e

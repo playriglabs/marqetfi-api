@@ -13,4 +13,3 @@ router.include_router(users.router, prefix="/users", tags=["users"])
 router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 router.include_router(trading.router, prefix="/trading", tags=["trading"])
 router.include_router(prices.router, prefix="/prices", tags=["prices"])
-

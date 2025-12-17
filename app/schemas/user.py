@@ -39,4 +39,3 @@ class UserResponse(UserBase):
         """Pydantic config."""
 
         from_attributes = True
-

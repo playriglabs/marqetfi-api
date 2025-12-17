@@ -25,15 +25,16 @@ async def open_trade(
             at_price=trade.at_price,
             tp=trade.tp,
             sl=trade.sl,
+            asset=trade.asset,
         )
         return TradeResponse(
             transaction_hash=result["transaction_hash"],
+            pair_id=result.get("pair_id"),
+            trade_index=result.get("trade_index"),
             status=result.get("status", "success"),
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -80,9 +81,7 @@ async def update_take_profit(
             status=result.get("status", "updated"),
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -107,9 +106,7 @@ async def update_stop_loss(
             status=result.get("status", "updated"),
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -220,9 +217,7 @@ async def update_limit_order(
             status=result.get("status", "updated"),
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -232,15 +227,19 @@ async def update_limit_order(
 
 @router.get("/pairs", response_model=PairResponse)
 async def get_pairs(
+    category: str | None = None,
     trading_service: TradingService = Depends(get_trading_service),
 ) -> PairResponse:
-    """Get all available trading pairs."""
+    """Get all available trading pairs.
+
+    Args:
+        category: Optional category filter (crypto, forex, indices, commodities)
+    """
     try:
-        pairs = await trading_service.get_pairs()
+        pairs = await trading_service.get_pairs(category=category)
         return PairResponse(pairs=pairs)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get pairs: {str(e)}",
         ) from e
-

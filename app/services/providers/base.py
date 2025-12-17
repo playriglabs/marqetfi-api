@@ -64,16 +64,12 @@ class BaseTradingProvider(BaseExternalService, ABC):
         pass
 
     @abstractmethod
-    async def update_tp(
-        self, pair_id: int, trade_index: int, tp_price: float
-    ) -> dict[str, Any]:
+    async def update_tp(self, pair_id: int, trade_index: int, tp_price: float) -> dict[str, Any]:
         """Update take profit for a trade."""
         pass
 
     @abstractmethod
-    async def update_sl(
-        self, pair_id: int, trade_index: int, sl_price: float
-    ) -> dict[str, Any]:
+    async def update_sl(self, pair_id: int, trade_index: int, sl_price: float) -> dict[str, Any]:
         """Update stop loss for a trade."""
         pass
 
@@ -83,9 +79,7 @@ class BaseTradingProvider(BaseExternalService, ABC):
         pass
 
     @abstractmethod
-    async def get_open_trade_metrics(
-        self, pair_id: int, trade_index: int
-    ) -> dict[str, Any]:
+    async def get_open_trade_metrics(self, pair_id: int, trade_index: int) -> dict[str, Any]:
         """Get metrics for an open trade."""
         pass
 
@@ -95,9 +89,7 @@ class BaseTradingProvider(BaseExternalService, ABC):
         pass
 
     @abstractmethod
-    async def cancel_limit_order(
-        self, pair_id: int, order_index: int
-    ) -> dict[str, Any]:
+    async def cancel_limit_order(self, pair_id: int, order_index: int) -> dict[str, Any]:
         """Cancel a limit order."""
         pass
 
@@ -130,9 +122,7 @@ class BasePriceProvider(BaseExternalService, ABC):
         pass
 
     @abstractmethod
-    async def get_prices(
-        self, assets: list[tuple[str, str]]
-    ) -> dict[str, tuple[float, int, str]]:
+    async def get_prices(self, assets: list[tuple[str, str]]) -> dict[str, tuple[float, int, str]]:
         """Get prices for multiple assets.
 
         Args:
@@ -166,9 +156,6 @@ class BaseSettlementProvider(BaseExternalService, ABC):
         pass
 
     @abstractmethod
-    async def get_transaction_status(
-        self, transaction_hash: str
-    ) -> dict[str, Any]:
+    async def get_transaction_status(self, transaction_hash: str) -> dict[str, Any]:
         """Get status of a transaction."""
         pass
-

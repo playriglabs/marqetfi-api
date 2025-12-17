@@ -23,4 +23,3 @@ class UserRepository(BaseRepository[User]):
         """Get user by username."""
         result = await db.execute(select(User).where(User.username == username))
         return result.scalar_one_or_none()  # type: ignore
-

@@ -3,30 +3,33 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies import get_price_feed_service
-from app.schemas.price import PriceRequest, PriceResponse, PricesResponse
+from app.schemas.price import PriceResponse, PricesResponse
 from app.services.price_feed_service import PriceFeedService
 
 router = APIRouter()
 
 
-@router.get("/{asset}/{quote}", response_model=PriceResponse)
+@router.get("/{pair}", response_model=PriceResponse)
 async def get_price(
-    asset: str,
-    quote: str = "USD",
+    pair: str,
     use_cache: bool = Query(default=True, description="Use cached price if available"),
     price_service: PriceFeedService = Depends(get_price_feed_service),
 ) -> PriceResponse:
-    """Get current price for an asset."""
+    """Get current price for a trading pair.
+
+    Args:
+        pair: Trading pair in combined format (e.g., BTCUSDT, EURUSD, ETHUSDT)
+    """
     try:
-        price, timestamp, source = await price_service.get_price(
-            asset.upper(), quote.upper(), use_cache=use_cache
+        price, timestamp, source, asset, quote = await price_service.get_price_by_pair(
+            pair.upper(), use_cache=use_cache
         )
         return PriceResponse(
             price=price,
             timestamp=timestamp,
             source=source,
-            asset=asset.upper(),
-            quote=quote.upper(),
+            asset=asset,
+            quote=quote,
         )
     except Exception as e:
         raise HTTPException(
@@ -37,29 +40,30 @@ async def get_price(
 
 @router.get("", response_model=PricesResponse)
 async def get_prices(
-    assets: str = Query(
-        ..., description="Comma-separated asset symbols (e.g., BTC,ETH)"
+    pairs: str = Query(
+        ..., description="Comma-separated trading pairs (e.g., BTCUSDT,EURUSD,ETHUSDT)"
     ),
-    quote: str = Query(default="USD", description="Quote currency"),
     use_cache: bool = Query(default=True, description="Use cached prices if available"),
     price_service: PriceFeedService = Depends(get_price_feed_service),
 ) -> PricesResponse:
-    """Get prices for multiple assets."""
-    try:
-        asset_list = [a.strip().upper() for a in assets.split(",")]
-        asset_quotes = [(asset, quote.upper()) for asset in asset_list]
+    """Get prices for multiple trading pairs.
 
-        prices_dict = await price_service.get_prices(asset_quotes, use_cache=use_cache)
+    Args:
+        pairs: Comma-separated trading pairs in combined format
+    """
+    try:
+        pair_list = [p.strip().upper() for p in pairs.split(",")]
+        prices_dict = await price_service.get_prices_by_pairs(pair_list, use_cache=use_cache)
 
         prices = {
-            key: PriceResponse(
+            pair: PriceResponse(
                 price=price_data[0],
                 timestamp=price_data[1],
                 source=price_data[2],
-                asset=key.split("/")[0],
-                quote=key.split("/")[1] if "/" in key else quote.upper(),
+                asset=price_data[3],
+                quote=price_data[4],
             )
-            for key, price_data in prices_dict.items()
+            for pair, price_data in prices_dict.items()
         }
 
         return PricesResponse(prices=prices)
@@ -72,15 +76,19 @@ async def get_prices(
 
 @router.get("/pairs", response_model=list[dict])
 async def get_pairs(
+    category: str | None = None,
     price_service: PriceFeedService = Depends(get_price_feed_service),
 ) -> list[dict]:
-    """Get all available trading pairs."""
+    """Get all available trading pairs.
+
+    Args:
+        category: Optional category filter (crypto, forex, indices, commodities)
+    """
     try:
-        pairs = await price_service.get_pairs()
+        pairs = await price_service.get_pairs(category=category)
         return pairs
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get pairs: {str(e)}",
         ) from e
-

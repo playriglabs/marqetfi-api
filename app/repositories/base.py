@@ -62,4 +62,3 @@ class BaseRepository(Generic[ModelType]):
             await db.commit()
             return True
         return False
-

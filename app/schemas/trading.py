@@ -12,14 +12,13 @@ class TradeCreate(BaseModel):
     leverage: int = Field(..., ge=1, description="Leverage multiplier")
     asset_type: int = Field(..., description="Asset type (0 for BTC, 1 for ETH, etc.)")
     direction: bool = Field(..., description="True for Long, False for Short")
-    order_type: str = Field(
-        ..., description="Order type: MARKET, LIMIT, or STOP"
-    )
-    at_price: float | None = Field(
-        None, gt=0, description="Price for LIMIT or STOP orders"
-    )
+    order_type: str = Field(..., description="Order type: MARKET, LIMIT, or STOP")
+    at_price: float | None = Field(None, gt=0, description="Price for LIMIT or STOP orders")
     tp: float | None = Field(None, gt=0, description="Take Profit price")
     sl: float | None = Field(None, gt=0, description="Stop Loss price")
+    asset: str | None = Field(
+        None, description="Asset symbol (e.g., BTC, ETH, EURUSD) for provider routing"
+    )
 
 
 class TradeResponse(BaseModel):
@@ -55,4 +54,3 @@ class PairResponse(BaseModel):
     """Schema for trading pair response."""
 
     pairs: list[dict[str, Any]] = Field(..., description="Available trading pairs")
-

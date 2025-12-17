@@ -26,4 +26,3 @@ aiosqlite
 
 # Type Stubs
 types-redis
-

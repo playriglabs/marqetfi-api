@@ -126,6 +126,40 @@ graph TB
 - Python 3.11+
 - PostgreSQL 14+, Redis 6+, RabbitMQ 3.9+
 - Docker & Docker Compose (for infrastructure)
+- Beads (bd) - Work tracking system ([Installation](https://github.com/steveyegge/beads))
+
+### Work Tracking with Beads
+
+This project uses [Beads (bd)](https://github.com/steveyegge/beads) for tracking all work items, tasks, and dependencies.
+
+**Before starting any work:**
+```bash
+# Check what's ready to work on
+bd ready
+
+# Create a new issue for your work
+bd create "Task description" --priority P0 --type task
+
+# Check existing issues
+bd list
+```
+
+**During work:**
+```bash
+# Update issue status
+bd update bd-XXX --status in-progress
+```
+
+**After completing work:**
+```bash
+# Close the issue
+bd close bd-XXX
+
+# Check overall status
+bd status
+```
+
+**See `.cursorrules` for complete workflow requirements.**
 
 ### Common Commands
 

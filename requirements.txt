@@ -29,5 +29,6 @@ httpx
 # CLI
 typer
 
-# Ostium SDK
+# Trading Provider SDKs
 ostium-python-sdk
+lighter-python @ git+https://github.com/elliottech/lighter-python.git
