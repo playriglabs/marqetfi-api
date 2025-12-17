@@ -23,5 +23,6 @@ class PriceResponse(BaseModel):
 class PricesResponse(BaseModel):
     """Schema for multiple prices response."""
 
-    prices: dict[str, PriceResponse] = Field(..., description="Prices by asset/quote")
-
+    prices: dict[str, PriceResponse] = Field(
+        ..., description="Prices by trading pair (e.g., BTCUSDT, EURUSD)"
+    )

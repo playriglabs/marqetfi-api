@@ -14,4 +14,3 @@ def test_health_check(client: TestClient):
     assert "database" in data
     # Database status can be healthy or unhealthy depending on connection
     assert data["database"] in ["healthy", "unhealthy"]
-

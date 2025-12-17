@@ -60,4 +60,3 @@ def example_periodic_task() -> dict:
     logger.info("Running periodic task")
     # Your periodic task logic here
     return {"status": "completed"}
-

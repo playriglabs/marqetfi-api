@@ -74,4 +74,3 @@ worker:
 
 beat:
 	celery -A app.tasks.celery_app beat --loglevel=info
-

@@ -52,4 +52,3 @@ async def handle_webhook(
     # example_task.delay(payload)
 
     return {"status": "received", "message": "Webhook processed successfully"}
-

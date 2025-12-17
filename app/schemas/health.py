@@ -8,4 +8,3 @@ class HealthResponse(BaseModel):
 
     status: str
     database: str
-

@@ -1,9 +1,12 @@
 """Factory for creating provider instances."""
 
-from functools import lru_cache
 from typing import Any
 
+from app.config.providers.lighter import LighterConfig
 from app.config.providers.ostium import OstiumConfig
+
+# Import providers to trigger auto-registration
+from app.services.providers import lighter, ostium  # noqa: F401
 from app.services.providers.base import (
     BasePriceProvider,
     BaseSettlementProvider,
@@ -11,9 +14,6 @@ from app.services.providers.base import (
 )
 from app.services.providers.exceptions import ExternalServiceError
 from app.services.providers.registry import ProviderRegistry
-
-# Import providers to trigger auto-registration
-from app.services.providers import ostium  # noqa: F401
 
 
 class ProviderFactory:
@@ -54,20 +54,32 @@ class ProviderFactory:
                 rpc_url=rpc_url,
                 network=network,
                 verbose=getattr(settings, "ostium_verbose", False),
-                slippage_percentage=getattr(
-                    settings, "ostium_slippage_percentage", 1.0
-                ),
+                slippage_percentage=getattr(settings, "ostium_slippage_percentage", 1.0),
                 timeout=getattr(settings, "ostium_timeout", 30),
                 retry_attempts=getattr(settings, "ostium_retry_attempts", 3),
                 retry_delay=getattr(settings, "ostium_retry_delay", 1.0),
             )
 
+        if provider_name == "lighter":
+            from app.config import get_settings
+
+            settings = get_settings()
+
+            return LighterConfig(
+                enabled=getattr(settings, "lighter_enabled", True),
+                api_url=getattr(settings, "lighter_api_url", "https://api.lighter.xyz"),
+                api_key=getattr(settings, "lighter_api_key", None),
+                private_key=getattr(settings, "lighter_private_key", None),
+                network=getattr(settings, "lighter_network", "mainnet"),
+                timeout=getattr(settings, "lighter_timeout", 30),
+                retry_attempts=getattr(settings, "lighter_retry_attempts", 3),
+                retry_delay=getattr(settings, "lighter_retry_delay", 1.0),
+            )
+
         raise ValueError(f"Unknown provider: {provider_name}")
 
     @classmethod
-    async def get_trading_provider(
-        cls, provider_name: str | None = None
-    ) -> BaseTradingProvider:
+    async def get_trading_provider(cls, provider_name: str | None = None) -> BaseTradingProvider:
         """Get configured trading provider instance."""
         if provider_name is None:
             from app.config import get_settings
@@ -98,9 +110,7 @@ class ProviderFactory:
         return provider
 
     @classmethod
-    async def get_price_provider(
-        cls, provider_name: str | None = None
-    ) -> BasePriceProvider:
+    async def get_price_provider(cls, provider_name: str | None = None) -> BasePriceProvider:
         """Get configured price provider instance."""
         if provider_name is None:
             from app.config import get_settings
@@ -162,4 +172,3 @@ class ProviderFactory:
         cls._settlement_provider_cache[provider_name] = provider
 
         return provider
-

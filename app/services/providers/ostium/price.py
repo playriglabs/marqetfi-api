@@ -40,9 +40,7 @@ class OstiumPriceProvider(BasePriceProvider):
             error = self.ostium_service.handle_service_error(e, "get_price")
             raise PriceProviderError(str(error), service_name=self.service_name) from e
 
-    async def get_prices(
-        self, assets: list[tuple[str, str]]
-    ) -> dict[str, tuple[float, int, str]]:
+    async def get_prices(self, assets: list[tuple[str, str]]) -> dict[str, tuple[float, int, str]]:
         """Get prices for multiple assets."""
         try:
             await self.ostium_service.initialize()
@@ -53,15 +51,13 @@ class OstiumPriceProvider(BasePriceProvider):
 
             # Fetch prices concurrently
             tasks = [
-                asyncio.to_thread(
-                    self.ostium_service.sdk.price.get_price, asset, quote
-                )
+                asyncio.to_thread(self.ostium_service.sdk.price.get_price, asset, quote)
                 for asset, quote in assets
             ]
 
             prices = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for (asset, quote), price_data in zip(assets, prices):
+            for (asset, quote), price_data in zip(assets, prices, strict=False):
                 key = f"{asset}/{quote}"
                 if isinstance(price_data, Exception):
                     # Log error but continue with other prices
@@ -69,7 +65,8 @@ class OstiumPriceProvider(BasePriceProvider):
                         price_data, f"get_price({key})"
                     )
                     continue
-                results[key] = price_data
+                if isinstance(price_data, tuple) and len(price_data) == 3:
+                    results[key] = price_data
 
             return results
         except Exception as e:
@@ -85,8 +82,7 @@ class OstiumPriceProvider(BasePriceProvider):
 
             pairs = await asyncio.to_thread(self.ostium_service.sdk.subgraph.get_pairs)
 
-            return pairs if pairs else []
+            return list(pairs) if pairs else []
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_pairs")
             raise PriceProviderError(str(error), service_name=self.service_name) from e
-

@@ -1,7 +1,6 @@
 """Base Ostium service wrapper."""
 
 import asyncio
-from typing import Any
 
 from loguru import logger
 from ostium_python_sdk import OstiumSDK
@@ -59,4 +58,3 @@ class OstiumService(BaseExternalService):
                 service_name=self.service_name,
             )
         return self._sdk
-

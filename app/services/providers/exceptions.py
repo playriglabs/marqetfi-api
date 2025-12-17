@@ -32,4 +32,3 @@ class ServiceUnavailableError(ExternalServiceError):
     """Service connectivity errors."""
 
     pass
-

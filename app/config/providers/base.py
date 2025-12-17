@@ -10,9 +10,7 @@ class BaseProviderConfig(BaseSettings):
     enabled: bool = Field(default=True, description="Whether the provider is enabled")
     timeout: int = Field(default=30, description="Request timeout in seconds")
     retry_attempts: int = Field(default=3, description="Number of retry attempts")
-    retry_delay: float = Field(
-        default=1.0, description="Delay between retries in seconds"
-    )
+    retry_delay: float = Field(default=1.0, description="Delay between retries in seconds")
 
     class Config:
         """Pydantic config."""
@@ -21,4 +19,3 @@ class BaseProviderConfig(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "allow"
-

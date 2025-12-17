@@ -57,7 +57,8 @@ class CacheManager:
         """Delete key from cache."""
         if not self.redis:
             return False
-        return await self.redis.delete(key) > 0
+        result = await self.redis.delete(key)
+        return bool(result > 0)
 
     async def exists(self, key: str) -> bool:
         """Check if key exists in cache."""
@@ -73,4 +74,3 @@ cache_manager = CacheManager()
 async def get_cache() -> CacheManager:
     """Get cache manager instance."""
     return cache_manager
-

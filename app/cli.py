@@ -217,4 +217,3 @@ def format_code() -> None:
 
 if __name__ == "__main__":
     app()
-

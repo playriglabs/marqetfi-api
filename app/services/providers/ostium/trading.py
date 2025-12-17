@@ -2,8 +2,6 @@
 
 from typing import Any
 
-from loguru import logger
-
 from app.config.providers.ostium import OstiumConfig
 from app.services.providers.base import BaseTradingProvider
 from app.services.providers.exceptions import TradingProviderError
@@ -70,9 +68,11 @@ class OstiumTradingProvider(BaseTradingProvider):
             )
 
             return {
-                "transaction_hash": receipt["transactionHash"].hex()
-                if hasattr(receipt["transactionHash"], "hex")
-                else str(receipt["transactionHash"]),
+                "transaction_hash": (
+                    receipt["transactionHash"].hex()
+                    if hasattr(receipt["transactionHash"], "hex")
+                    else str(receipt["transactionHash"])
+                ),
                 "status": "success",
             }
         except Exception as e:
@@ -91,18 +91,18 @@ class OstiumTradingProvider(BaseTradingProvider):
             )
 
             return {
-                "transaction_hash": receipt["transactionHash"].hex()
-                if hasattr(receipt["transactionHash"], "hex")
-                else str(receipt["transactionHash"]),
+                "transaction_hash": (
+                    receipt["transactionHash"].hex()
+                    if hasattr(receipt["transactionHash"], "hex")
+                    else str(receipt["transactionHash"])
+                ),
                 "status": "closed",
             }
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "close_trade")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
 
-    async def update_tp(
-        self, pair_id: int, trade_index: int, tp_price: float
-    ) -> dict[str, Any]:
+    async def update_tp(self, pair_id: int, trade_index: int, tp_price: float) -> dict[str, Any]:
         """Update take profit for a trade."""
         try:
             await self.ostium_service.initialize()
@@ -118,9 +118,7 @@ class OstiumTradingProvider(BaseTradingProvider):
             error = self.ostium_service.handle_service_error(e, "update_tp")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
 
-    async def update_sl(
-        self, pair_id: int, trade_index: int, sl_price: float
-    ) -> dict[str, Any]:
+    async def update_sl(self, pair_id: int, trade_index: int, sl_price: float) -> dict[str, Any]:
         """Update stop loss for a trade."""
         try:
             await self.ostium_service.initialize()
@@ -147,14 +145,12 @@ class OstiumTradingProvider(BaseTradingProvider):
                 self.ostium_service.sdk.subgraph.get_open_trades, trader_address
             )
 
-            return trades if trades else []
+            return list(trades) if trades else []
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_open_trades")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
 
-    async def get_open_trade_metrics(
-        self, pair_id: int, trade_index: int
-    ) -> dict[str, Any]:
+    async def get_open_trade_metrics(self, pair_id: int, trade_index: int) -> dict[str, Any]:
         """Get metrics for an open trade."""
         try:
             await self.ostium_service.initialize()
@@ -165,7 +161,7 @@ class OstiumTradingProvider(BaseTradingProvider):
                 self.ostium_service.sdk.get_open_trade_metrics, pair_id, trade_index
             )
 
-            return metrics if metrics else {}
+            return dict(metrics) if metrics else {}
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_open_trade_metrics")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
@@ -181,14 +177,12 @@ class OstiumTradingProvider(BaseTradingProvider):
                 self.ostium_service.sdk.subgraph.get_orders, trader_address
             )
 
-            return orders if orders else []
+            return list(orders) if orders else []
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_orders")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
 
-    async def cancel_limit_order(
-        self, pair_id: int, order_index: int
-    ) -> dict[str, Any]:
+    async def cancel_limit_order(self, pair_id: int, order_index: int) -> dict[str, Any]:
         """Cancel a limit order."""
         try:
             await self.ostium_service.initialize()
@@ -200,9 +194,11 @@ class OstiumTradingProvider(BaseTradingProvider):
             )
 
             return {
-                "transaction_hash": receipt["transactionHash"].hex()
-                if hasattr(receipt["transactionHash"], "hex")
-                else str(receipt["transactionHash"]),
+                "transaction_hash": (
+                    receipt["transactionHash"].hex()
+                    if hasattr(receipt["transactionHash"], "hex")
+                    else str(receipt["transactionHash"])
+                ),
                 "status": "cancelled",
             }
         except Exception as e:
@@ -229,9 +225,11 @@ class OstiumTradingProvider(BaseTradingProvider):
             )
 
             return {
-                "transaction_hash": receipt["transactionHash"].hex()
-                if hasattr(receipt["transactionHash"], "hex")
-                else str(receipt["transactionHash"]),
+                "transaction_hash": (
+                    receipt["transactionHash"].hex()
+                    if hasattr(receipt["transactionHash"], "hex")
+                    else str(receipt["transactionHash"])
+                ),
                 "status": "updated",
             }
         except Exception as e:
@@ -247,8 +245,7 @@ class OstiumTradingProvider(BaseTradingProvider):
 
             pairs = await asyncio.to_thread(self.ostium_service.sdk.subgraph.get_pairs)
 
-            return pairs if pairs else []
+            return list(pairs) if pairs else []
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_pairs")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
-

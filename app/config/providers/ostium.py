@@ -1,9 +1,9 @@
 """Ostium provider configuration."""
 
+from ostium_python_sdk import NetworkConfig, OstiumSDK
 from pydantic import Field, field_validator
 
 from app.config.providers.base import BaseProviderConfig
-from ostium_python_sdk import NetworkConfig, OstiumSDK
 
 
 class OstiumConfig(BaseProviderConfig):
@@ -11,13 +11,9 @@ class OstiumConfig(BaseProviderConfig):
 
     private_key: str = Field(default="", description="Private key for signing")
     rpc_url: str = Field(default="", description="RPC URL for blockchain connection")
-    network: str = Field(
-        default="testnet", description="Network: 'testnet' or 'mainnet'"
-    )
+    network: str = Field(default="testnet", description="Network: 'testnet' or 'mainnet'")
     verbose: bool = Field(default=False, description="Enable verbose logging")
-    slippage_percentage: float = Field(
-        default=1.0, description="Default slippage percentage"
-    )
+    slippage_percentage: float = Field(default=1.0, description="Default slippage percentage")
 
     @field_validator("network")
     @classmethod
@@ -47,4 +43,3 @@ class OstiumConfig(BaseProviderConfig):
             self.rpc_url,
             verbose=self.verbose,
         )
-

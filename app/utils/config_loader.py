@@ -49,4 +49,3 @@ def get_contracts_config() -> dict[str, Any]:
 def get_buffers_config() -> dict[str, Any]:
     """Get buffers configuration."""
     return load_json_config("buffers.json")
-

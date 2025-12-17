@@ -43,4 +43,3 @@ def setup_logging() -> None:
         logging.getLogger(name).propagate = True
 
     logger.configure(handlers=[{"sink": sys.stdout, "serialize": settings.LOG_FORMAT == "json"}])
-

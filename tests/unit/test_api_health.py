@@ -29,4 +29,3 @@ async def test_health_check_unhealthy():
     result = await health_check(mock_db)
     assert result.status == "healthy"
     assert result.database == "unhealthy"
-

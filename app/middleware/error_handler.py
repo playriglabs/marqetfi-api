@@ -67,4 +67,3 @@ async def error_handler_middleware(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"},
         )
-
