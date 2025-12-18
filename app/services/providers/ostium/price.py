@@ -1,5 +1,6 @@
 """Ostium price provider implementation."""
 
+import time
 from typing import Any
 
 from app.config.providers.ostium import OstiumConfig
@@ -31,11 +32,25 @@ class OstiumPriceProvider(BasePriceProvider):
 
             import asyncio
 
-            price, timestamp, source = await asyncio.to_thread(
-                self.ostium_service.sdk.price.get_price, asset, quote
-            )
+            # SDK returns (price, _) but we need to handle it and provide timestamp/source
+            result = await asyncio.to_thread(self.ostium_service.sdk.price.get_price, asset, quote)
 
-            return (price, timestamp, source)
+            # Handle both 2-value and 3-value returns for compatibility
+            if isinstance(result, tuple):
+                if len(result) == 2:
+                    price, _ = result
+                    # Use current timestamp and source name
+                    timestamp = int(time.time())
+                    source = "ostium"
+                    return (price, timestamp, source)
+                elif len(result) == 3:
+                    price, timestamp, source = result
+                    return (price, timestamp, source)
+                else:
+                    raise ValueError(f"Unexpected return value from get_price: {result}")
+            else:
+                # Single value return
+                return (float(result), int(time.time()), "ostium")
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_price")
             raise PriceProviderError(str(error), service_name=self.service_name) from e
@@ -65,8 +80,18 @@ class OstiumPriceProvider(BasePriceProvider):
                         price_data, f"get_price({key})"
                     )
                     continue
-                if isinstance(price_data, tuple) and len(price_data) == 3:
-                    results[key] = price_data
+                if isinstance(price_data, tuple):
+                    # Handle both 2-value and 3-value returns
+                    if len(price_data) == 2:
+                        price, _ = price_data
+                        results[key] = (price, int(time.time()), "ostium")
+                    elif len(price_data) == 3:
+                        results[key] = price_data
+                    else:
+                        continue
+                elif isinstance(price_data, int | float):
+                    # Single value return
+                    results[key] = (float(price_data), int(time.time()), "ostium")
 
             return results
         except Exception as e:
@@ -85,4 +110,27 @@ class OstiumPriceProvider(BasePriceProvider):
             return list(pairs) if pairs else []
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_pairs")
+            raise PriceProviderError(str(error), service_name=self.service_name) from e
+
+    async def get_pair_details(self, pair_id: str) -> dict[str, Any]:
+        """Get detailed information for a trading pair.
+
+        Args:
+            pair_id: The pair ID (from get_pairs() result)
+
+        Returns:
+            Dictionary with detailed pair information
+        """
+        try:
+            await self.ostium_service.initialize()
+
+            import asyncio
+
+            pair_details = await asyncio.to_thread(
+                self.ostium_service.sdk.subgraph.get_pair_details, pair_id
+            )
+
+            return dict(pair_details) if pair_details else {}
+        except Exception as e:
+            error = self.ostium_service.handle_service_error(e, "get_pair_details")
             raise PriceProviderError(str(error), service_name=self.service_name) from e

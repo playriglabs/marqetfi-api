@@ -103,7 +103,8 @@ class Settings(BaseSettings):
 
         env_file = ".env"
         env_file_encoding = "utf-8"
-        case_sensitive = True
+        case_sensitive = False  # Allow case-insensitive env vars (PRIVATE_KEY = private_key)
+        extra = "ignore"  # Ignore extra fields from .env that don't match model fields
 
     def get_ostium_network_config(self) -> NetworkConfig:
         """Get Ostium network config (backward compatible)."""

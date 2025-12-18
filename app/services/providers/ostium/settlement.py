@@ -45,11 +45,10 @@ class OstiumSettlementProvider(BaseSettlementProvider):
                 "order_type": order_type,
             }
 
-            # Set slippage if configured
-            if self.ostium_service.config.slippage_percentage:
-                self.ostium_service.sdk.ostium.set_slippage_percentage(
-                    self.ostium_service.config.slippage_percentage
-                )
+            # Set slippage before each trade (as per SDK examples)
+            # Default to 1% if not configured (matching SDK example)
+            slippage = self.ostium_service.config.slippage_percentage or 1.0
+            self.ostium_service.sdk.ostium.set_slippage_percentage(slippage)
 
             import asyncio
 

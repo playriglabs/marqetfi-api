@@ -35,3 +35,7 @@ temp/
 .beads
 .sdd
 .cursorrules
+
+# Test generation
+.coverage
+htmlcov/
