@@ -1,67 +1,157 @@
 graph TB
-    subgraph Client["Client Layer"]
+    subgraph ClientLayer["🌐 Client Layer"]
+        direction TB
         WebApp["Web Application<br/>React/Next.js"]
         MobileApp["Mobile App<br/>React Native"]
     end
 
-    subgraph Gateway["API Gateway Layer"]
-        APIGateway["API Gateway FastAPI<br/>Rate Limiting & Auth"]
+    subgraph GatewayLayer["🚪 API Gateway Layer"]
+        direction TB
+        APIGateway["API Gateway<br/>FastAPI<br/>Rate Limiting & Auth"]
     end
 
-    subgraph Auth["Authentication & Identity"]
-        AuthService["Auth Service<br/>Email/Google/Apple"]
-        WalletSDK["Dynamic Wallet SDK<br/>MPC Wallet Creation"]
+    subgraph AuthLayer["🔐 Authentication & Identity"]
+        direction TB
+        AuthService["Auth Service<br/>━━━━━━━━━━━━━━━━<br/>Web2: Email/Google/Apple<br/>Web3: Wallet Connection"]
+        OAuthService["OAuth Service<br/>Google & Apple OAuth"]
+        WalletAuthService["Wallet Auth Service<br/>Web3 Signature Verification"]
+        WalletProviderFactory["Wallet Provider Factory<br/>━━━━━━━━━━━━━━━━<br/>Privy.io / Dynamic.xyz"]
+        MPCWalletService["MPC Wallet Service<br/>Wallet Creation & Management"]
+
+        AuthService --> OAuthService
+        AuthService --> WalletAuthService
+        AuthService --> MPCWalletService
+        WalletAuthService --> WalletProviderFactory
+        MPCWalletService --> WalletProviderFactory
     end
 
-    subgraph Core["Core Services - Python"]
+    subgraph CoreServices["⚙️ Core Services - Python"]
+        direction TB
         WalletService["Wallet Service<br/>Balance & Key Management"]
         TradingService["Trading Service<br/>Order & Position Management"]
         SettlementService["Settlement Service<br/>Trade Execution"]
         PriceFeedService["Price Feed Service<br/>Real-time Market Data"]
+        ProviderRouter["Provider Router<br/>Multi-Provider Routing"]
+        ProviderFactory["Provider Factory<br/>━━━━━━━━━━━━━━━━<br/>Ostium / Lighter"]
+
+        TradingService --> SettlementService
+        TradingService --> PriceFeedService
+        TradingService --> ProviderRouter
+        SettlementService --> ProviderFactory
+        SettlementService --> ProviderRouter
+        PriceFeedService --> ProviderFactory
+        PriceFeedService --> ProviderRouter
+        ProviderRouter --> ProviderFactory
     end
 
-    subgraph External["External Infrastructure"]
-        PostgreSQL["PostgreSQL<br/>User & Trade Data"]
-        RabbitMQ["Message Queue<br/>RabbitMQ/Celery"]
-        Ostium["Ostium Protocol<br/>Liquidity Provider"]
-        Arbitrum["Arbitrum Network<br/>USDC Settlement"]
-        Redis["Redis Cache<br/>& Sessions"]
+    subgraph BackgroundProcessing["⚡ Background Processing"]
+        direction TB
+        CeleryWorker["Celery Worker<br/>Async Task Processing"]
+        CeleryBeat["Celery Beat<br/>Scheduled Tasks"]
+        TaskQueue["Task Queue<br/>RabbitMQ"]
+
+        CeleryBeat --> TaskQueue
+        TaskQueue --> CeleryWorker
     end
 
-    subgraph Support["Support Services"]
+    subgraph AdminServices["👨‍💼 Admin Services"]
+        direction TB
+        AdminService["Admin Service<br/>Configuration Management"]
+        OstiumAdminService["Ostium Admin Service<br/>Settings & Fees Management"]
+
+        AdminService --> OstiumAdminService
+    end
+
+    subgraph ExternalInfra["🗄️ External Infrastructure"]
+        direction TB
+        PostgreSQL["PostgreSQL<br/>━━━━━━━━━━━━━━━━<br/>User, Trade, Wallet Data"]
+        RabbitMQ["RabbitMQ<br/>Message Queue"]
+        Redis["Redis<br/>Cache & Sessions"]
+
+        subgraph Providers["💧 Liquidity Providers"]
+            Ostium["Ostium Protocol<br/>Liquidity Provider"]
+            Lighter["Lighter Protocol<br/>Liquidity Provider"]
+        end
+
+        subgraph Blockchain["⛓️ Blockchain"]
+            Arbitrum["Arbitrum Network<br/>USDC Settlement"]
+        end
+
+        subgraph WalletProviders["🔑 Wallet Providers"]
+            PrivyAPI["Privy.io API<br/>MPC Wallet Provider"]
+            DynamicAPI["Dynamic.xyz API<br/>MPC Wallet Provider"]
+        end
+    end
+
+    subgraph SupportServices["📊 Support Services"]
+        direction TB
         RiskMgmt["Risk Management<br/>Limits & Margin"]
         Analytics["Analytics<br/>P&L & Reporting"]
+        Monitoring["Monitoring & Logging<br/>Observability"]
+
+        Analytics --> RiskMgmt
     end
 
+    %% Client to Gateway
     WebApp --> APIGateway
     MobileApp --> APIGateway
+
+    %% Gateway to Services
     APIGateway --> AuthService
     APIGateway --> TradingService
-    AuthService --> WalletSDK
-    WalletSDK --> WalletService
-    TradingService --> SettlementService
-    TradingService --> PriceFeedService
-    WalletService <--> PostgreSQL
-    WalletService <--> RabbitMQ
-    TradingService <--> PostgreSQL
-    TradingService <--> RabbitMQ
-    SettlementService <--> RabbitMQ
-    SettlementService <--> Ostium
-    SettlementService <--> Arbitrum
-    PriceFeedService <--> Redis
-    Analytics <--> PostgreSQL
-    Analytics <--> RiskMgmt
+    APIGateway --> AdminService
 
-    classDef client fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    classDef gateway fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    classDef auth fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef core fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    classDef external fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef support fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    %% Auth Layer Connections
+    WalletProviderFactory --> PrivyAPI
+    WalletProviderFactory --> DynamicAPI
+    OAuthService --> PostgreSQL
+    WalletAuthService --> PostgreSQL
+    MPCWalletService --> PostgreSQL
 
-    class WebApp,MobileApp client
-    class APIGateway gateway
-    class AuthService,WalletSDK auth
-    class WalletService,TradingService,SettlementService,PriceFeedService core
-    class PostgreSQL,RabbitMQ,Ostium,Arbitrum,Redis external
-    class RiskMgmt,Analytics support
+    %% Core Services Connections
+    TradingService --> RiskMgmt
+    WalletService --> WalletProviderFactory
+    WalletService --> PostgreSQL
+    WalletService --> TaskQueue
+    TradingService --> PostgreSQL
+    TradingService --> TaskQueue
+    SettlementService --> TaskQueue
+    SettlementService --> Arbitrum
+    PriceFeedService --> Redis
+    ProviderFactory --> Ostium
+    ProviderFactory --> Lighter
+
+    %% Admin Connections
+    OstiumAdminService --> PostgreSQL
+
+    %% Background Processing Connections
+    CeleryWorker --> PostgreSQL
+    CeleryWorker --> Redis
+    CeleryWorker --> ProviderFactory
+    CeleryWorker --> WalletProviderFactory
+
+    %% Support Services Connections
+    Analytics --> PostgreSQL
+    Analytics --> Redis
+    Monitoring --> PostgreSQL
+    Monitoring --> Redis
+    Monitoring --> RabbitMQ
+
+    %% Styling
+    classDef clientStyle fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    classDef gatewayStyle fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    classDef authStyle fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    classDef coreStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:3px
+    classDef backgroundStyle fill:#fce4ec,stroke:#880e4f,stroke-width:3px
+    classDef adminStyle fill:#e0f2f1,stroke:#004d40,stroke-width:3px
+    classDef externalStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef supportStyle fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+
+    class WebApp,MobileApp clientStyle
+    class APIGateway gatewayStyle
+    class AuthService,OAuthService,WalletAuthService,WalletProviderFactory,MPCWalletService authStyle
+    class WalletService,TradingService,SettlementService,PriceFeedService,ProviderRouter,ProviderFactory coreStyle
+    class CeleryWorker,CeleryBeat,TaskQueue backgroundStyle
+    class AdminService,OstiumAdminService adminStyle
+    class PostgreSQL,RabbitMQ,Redis,Ostium,Lighter,Arbitrum,PrivyAPI,DynamicAPI externalStyle
+    class RiskMgmt,Analytics,Monitoring supportStyle

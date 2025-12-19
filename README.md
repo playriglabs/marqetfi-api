@@ -28,7 +28,7 @@ API available at `http://localhost:8000` | Docs: `http://localhost:8000/docs`
 
 ## Architecture
 
-![High Level Design](./assets/hld.png)
+![High Level Design](./assets/hld.svg)
 
 <details>
 <summary>View Mermaid Diagram</summary>
@@ -45,8 +45,11 @@ graph TB
     end
 
     subgraph Auth["Authentication & Identity"]
-        AuthService["Auth Service<br/>Email/Google/Apple"]
-        WalletSDK["Dynamic Wallet SDK<br/>MPC Wallet Creation"]
+        AuthService["Auth Service<br/>Web2: Email/Google/Apple<br/>Web3: Wallet Connection"]
+        OAuthService["OAuth Service<br/>Google & Apple OAuth"]
+        WalletAuthService["Wallet Auth Service<br/>Web3 Signature Verification"]
+        WalletProviderFactory["Wallet Provider Factory<br/>Privy.io / Dynamic.xyz"]
+        MPCWalletService["MPC Wallet Service<br/>Wallet Creation & Management"]
     end
 
     subgraph Core["Core Services - Python"]
@@ -54,58 +57,119 @@ graph TB
         TradingService["Trading Service<br/>Order & Position Management"]
         SettlementService["Settlement Service<br/>Trade Execution"]
         PriceFeedService["Price Feed Service<br/>Real-time Market Data"]
+        ProviderRouter["Provider Router<br/>Multi-Provider Routing"]
+        ProviderFactory["Provider Factory<br/>Ostium / Lighter"]
+    end
+
+    subgraph Background["Background Processing"]
+        CeleryWorker["Celery Worker<br/>Async Task Processing"]
+        CeleryBeat["Celery Beat<br/>Scheduled Tasks"]
+        TaskQueue["Task Queue<br/>RabbitMQ"]
+    end
+
+    subgraph Admin["Admin Services"]
+        AdminService["Admin Service<br/>Configuration Management"]
+        OstiumAdminService["Ostium Admin Service<br/>Settings & Fees Management"]
     end
 
     subgraph External["External Infrastructure"]
-        PostgreSQL["PostgreSQL<br/>User & Trade Data"]
+        PostgreSQL["PostgreSQL<br/>User, Trade, Wallet Data"]
         RabbitMQ["Message Queue<br/>RabbitMQ/Celery"]
-        Ostium["Ostium Protocol<br/>Liquidity Provider"]
-        Arbitrum["Arbitrum Network<br/>USDC Settlement"]
         Redis["Redis Cache<br/>& Sessions"]
+        Ostium["Ostium Protocol<br/>Liquidity Provider"]
+        Lighter["Lighter Protocol<br/>Liquidity Provider"]
+        Arbitrum["Arbitrum Network<br/>USDC Settlement"]
+        PrivyAPI["Privy.io API<br/>MPC Wallet Provider"]
+        DynamicAPI["Dynamic.xyz API<br/>MPC Wallet Provider"]
     end
 
     subgraph Support["Support Services"]
         RiskMgmt["Risk Management<br/>Limits & Margin"]
         Analytics["Analytics<br/>P&L & Reporting"]
+        Monitoring["Monitoring & Logging<br/>Observability"]
     end
 
     WebApp --> APIGateway
     MobileApp --> APIGateway
     APIGateway --> AuthService
     APIGateway --> TradingService
-    AuthService --> WalletSDK
-    WalletSDK --> WalletService
+    APIGateway --> AdminService
+
+    AuthService --> OAuthService
+    AuthService --> WalletAuthService
+    AuthService --> MPCWalletService
+    WalletAuthService --> WalletProviderFactory
+    MPCWalletService --> WalletProviderFactory
+    WalletProviderFactory --> PrivyAPI
+    WalletProviderFactory --> DynamicAPI
+
+    OAuthService --> PostgreSQL
+    WalletAuthService --> PostgreSQL
+    MPCWalletService --> PostgreSQL
+
     TradingService --> SettlementService
     TradingService --> PriceFeedService
-    WalletService <--> PostgreSQL
-    WalletService <--> RabbitMQ
-    TradingService <--> PostgreSQL
-    TradingService <--> RabbitMQ
-    SettlementService <--> RabbitMQ
-    SettlementService <--> Ostium
-    SettlementService <--> Arbitrum
-    PriceFeedService <--> Redis
-    Analytics <--> PostgreSQL
-    Analytics <--> RiskMgmt
+    TradingService --> ProviderRouter
+    TradingService --> RiskMgmt
+
+    SettlementService --> ProviderFactory
+    SettlementService --> ProviderRouter
+    PriceFeedService --> ProviderFactory
+    PriceFeedService --> ProviderRouter
+
+    ProviderFactory --> Ostium
+    ProviderFactory --> Lighter
+    ProviderRouter --> ProviderFactory
+
+    SettlementService --> Arbitrum
+    SettlementService --> TaskQueue
+
+    AdminService --> OstiumAdminService
+    OstiumAdminService --> PostgreSQL
+
+    WalletService --> PostgreSQL
+    WalletService --> WalletProviderFactory
+    WalletService --> TaskQueue
+
+    TradingService --> PostgreSQL
+    TradingService --> TaskQueue
+    PriceFeedService --> Redis
+
+    CeleryWorker --> TaskQueue
+    CeleryBeat --> TaskQueue
+    CeleryWorker --> PostgreSQL
+    CeleryWorker --> Redis
+    CeleryWorker --> ProviderFactory
+    CeleryWorker --> WalletProviderFactory
+
+    Analytics --> PostgreSQL
+    Analytics --> RiskMgmt
+    Analytics --> Redis
+
+    Monitoring --> PostgreSQL
+    Monitoring --> Redis
+    Monitoring --> RabbitMQ
 
     classDef client fill:#e1f5ff,stroke:#01579b,stroke-width:2px
     classDef gateway fill:#e1f5ff,stroke:#01579b,stroke-width:2px
     classDef auth fill:#fff3e0,stroke:#e65100,stroke-width:2px
     classDef core fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef background fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef admin fill:#e0f2f1,stroke:#004d40,stroke-width:2px
     classDef external fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef support fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef support fill:#fff9c4,stroke:#f57f17,stroke-width:2px
 
     class WebApp,MobileApp client
     class APIGateway gateway
-    class AuthService,WalletSDK auth
-    class WalletService,TradingService,SettlementService,PriceFeedService core
-    class PostgreSQL,RabbitMQ,Ostium,Arbitrum,Redis external
-    class RiskMgmt,Analytics support
+    class AuthService,OAuthService,WalletAuthService,WalletProviderFactory,MPCWalletService auth
+    class WalletService,TradingService,SettlementService,PriceFeedService,ProviderRouter,ProviderFactory core
+    class CeleryWorker,CeleryBeat,TaskQueue background
+    class AdminService,OstiumAdminService admin
+    class PostgreSQL,RabbitMQ,Redis,Ostium,Lighter,Arbitrum,PrivyAPI,DynamicAPI external
+    class RiskMgmt,Analytics,Monitoring support
 ```
 
 </details>
-
-**Mermaid Source**: [assets/hld_mermaid.mmd](./assets/hld_mermaid.mmd)
 
 ## Features
 
@@ -126,40 +190,6 @@ graph TB
 - Python 3.11+
 - PostgreSQL 14+, Redis 6+, RabbitMQ 3.9+
 - Docker & Docker Compose (for infrastructure)
-- Beads (bd) - Work tracking system ([Installation](https://github.com/steveyegge/beads))
-
-### Work Tracking with Beads
-
-This project uses [Beads (bd)](https://github.com/steveyegge/beads) for tracking all work items, tasks, and dependencies.
-
-**Before starting any work:**
-```bash
-# Check what's ready to work on
-bd ready
-
-# Create a new issue for your work
-bd create "Task description" --priority P0 --type task
-
-# Check existing issues
-bd list
-```
-
-**During work:**
-```bash
-# Update issue status
-bd update bd-XXX --status in-progress
-```
-
-**After completing work:**
-```bash
-# Close the issue
-bd close bd-XXX
-
-# Check overall status
-bd status
-```
-
-**See `.cursorrules` for complete workflow requirements.**
 
 ### Common Commands
 

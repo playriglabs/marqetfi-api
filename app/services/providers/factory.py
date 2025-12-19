@@ -24,10 +24,51 @@ class ProviderFactory:
     _settlement_provider_cache: dict[str, BaseSettlementProvider] = {}
 
     @classmethod
-    def _get_provider_config(cls, provider_name: str) -> Any:
-        """Get provider configuration based on provider name."""
+    async def _get_provider_config(cls, provider_name: str, db_session: Any = None) -> Any:
+        """Get provider configuration based on provider name.
+
+        Tries to load from database first, falls back to environment variables.
+
+        Args:
+            provider_name: Name of the provider
+            db_session: Optional database session for loading from database
+
+        Returns:
+            Provider configuration instance
+        """
         # This would be extended to support multiple providers
         if provider_name == "ostium":
+            # Try to load from database first
+            try:
+                # Use provided session or create a temporary one
+                if db_session is not None:
+                    from app.services.ostium_admin_service import OstiumAdminService
+
+                    service = OstiumAdminService()
+                    db_config = await service.get_active_config(db_session)
+                    if db_config:
+                        return db_config
+                else:
+                    # Create temporary session for loading config
+                    from app.core.database import get_session_maker
+
+                    session_maker = get_session_maker()
+                    async with session_maker() as session:
+                        try:
+                            from app.services.ostium_admin_service import OstiumAdminService
+
+                            service = OstiumAdminService()
+                            db_config = await service.get_active_config(session)
+                            if db_config:
+                                return db_config
+                        except Exception:
+                            # If database load fails, fall back to environment
+                            pass
+            except Exception:
+                # If we can't even create a session, fall back to environment
+                pass
+
+            # Fall back to environment variables
             from app.config import get_settings
 
             settings = get_settings()
@@ -48,6 +89,12 @@ class ProviderFactory:
                 else settings.network
             )
 
+            # Get wallet provider settings
+            wallet_provider = getattr(settings, "WALLET_PROVIDER", "none")
+            use_wallet_provider = getattr(settings, "OSTIUM_USE_WALLET_PROVIDER", False)
+            wallet_provider_id = getattr(settings, "OSTIUM_WALLET_PROVIDER_ID", None)
+            fallback_to_private_key = getattr(settings, "OSTIUM_FALLBACK_TO_PRIVATE_KEY", True)
+
             return OstiumConfig(
                 enabled=getattr(settings, "ostium_enabled", True),
                 private_key=private_key,
@@ -58,6 +105,10 @@ class ProviderFactory:
                 timeout=getattr(settings, "ostium_timeout", 30),
                 retry_attempts=getattr(settings, "ostium_retry_attempts", 3),
                 retry_delay=getattr(settings, "ostium_retry_delay", 1.0),
+                wallet_provider=wallet_provider if wallet_provider != "none" else None,
+                wallet_provider_id=wallet_provider_id,
+                use_wallet_provider=use_wallet_provider,
+                fallback_to_private_key=fallback_to_private_key,
             )
 
         if provider_name == "lighter":
@@ -100,7 +151,7 @@ class ProviderFactory:
             )
 
         # Get config and create instance
-        config = cls._get_provider_config(provider_name)
+        config = await cls._get_provider_config(provider_name, db_session=None)
         provider = provider_class(config)
 
         # Initialize and cache
@@ -131,7 +182,7 @@ class ProviderFactory:
             )
 
         # Get config and create instance
-        config = cls._get_provider_config(provider_name)
+        config = await cls._get_provider_config(provider_name, db_session=None)
         provider = provider_class(config)
 
         # Initialize and cache
@@ -164,7 +215,7 @@ class ProviderFactory:
             )
 
         # Get config and create instance
-        config = cls._get_provider_config(provider_name)
+        config = await cls._get_provider_config(provider_name, db_session=None)
         provider = provider_class(config)
 
         # Initialize and cache

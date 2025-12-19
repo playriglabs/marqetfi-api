@@ -63,7 +63,7 @@ class LighterSettlementProvider(BaseSettlementProvider):
             if at_price:
                 order_data["price"] = at_price
 
-            result = await asyncio.to_thread(order_api.create_order, order_data)
+            result = await asyncio.to_thread(order_api.create_order, order_data)  # type: ignore[attr-defined]
 
             return {
                 "transaction_hash": str(result.get("id", "")),
@@ -89,7 +89,7 @@ class LighterSettlementProvider(BaseSettlementProvider):
             order_api = lighter.OrderApi(self.lighter_service.client)
 
             # Get order status by ID
-            order = await asyncio.to_thread(order_api.get_order, order_id=transaction_hash)
+            order = await asyncio.to_thread(order_api.get_order, order_id=transaction_hash)  # type: ignore[attr-defined]
 
             return {
                 "transaction_hash": transaction_hash,

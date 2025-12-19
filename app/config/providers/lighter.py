@@ -10,7 +10,7 @@ from app.config.providers.base import BaseProviderConfig
 try:
     import lighter
 except ImportError:
-    lighter = None
+    lighter = None  # type: ignore[assignment, no-redef]
 
 
 class LighterConfig(BaseProviderConfig):

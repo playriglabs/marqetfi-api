@@ -45,7 +45,7 @@ class LighterPriceProvider(BasePriceProvider):
 
             # Get market data from Lighter
             # This is a placeholder - adjust based on actual API
-            market_api = lighter.MarketApi(self.lighter_service.client)
+            market_api = lighter.MarketApi(self.lighter_service.client)  # type: ignore[attr-defined]
 
             # Get ticker/price for the market
             ticker = await asyncio.to_thread(market_api.get_ticker, market=f"{asset}/{quote}")
@@ -70,7 +70,7 @@ class LighterPriceProvider(BasePriceProvider):
             import lighter
 
             results: dict[str, tuple[float, int, str]] = {}
-            market_api = lighter.MarketApi(self.lighter_service.client)
+            market_api = lighter.MarketApi(self.lighter_service.client)  # type: ignore[attr-defined]
 
             # Fetch prices concurrently
             tasks = [
@@ -109,7 +109,7 @@ class LighterPriceProvider(BasePriceProvider):
 
             import lighter
 
-            market_api = lighter.MarketApi(self.lighter_service.client)
+            market_api = lighter.MarketApi(self.lighter_service.client)  # type: ignore[attr-defined]
             markets = await asyncio.to_thread(market_api.get_markets)
 
             return list(markets) if markets else []

@@ -19,6 +19,7 @@ celery
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+auth0-python
 
 # Logging
 loguru
@@ -31,4 +32,11 @@ typer
 
 # Trading Provider SDKs
 ostium-python-sdk
-lighter-python @ git+https://github.com/elliottech/lighter-python.git
+lighter-sdk @ git+https://github.com/elliottech/lighter-python.git@main
+
+# Blockchain
+web3
+eth-account
+
+# Wallet Providers
+privy-client

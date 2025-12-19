@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from ostium_python_sdk.utils import get_order_details
+
 from app.config.providers.ostium import OstiumConfig
 from app.services.providers.base import BaseTradingProvider
 from app.services.providers.exceptions import TradingProviderError
@@ -52,17 +54,15 @@ class OstiumTradingProvider(BaseTradingProvider):
             if sl:
                 trade_params["sl"] = sl
 
-            # Set slippage if configured
-            if self.ostium_service.config.slippage_percentage:
-                self.ostium_service.sdk.ostium.set_slippage_percentage(
-                    self.ostium_service.config.slippage_percentage
-                )
+            # Set slippage before each trade (as per SDK examples)
+            # Default to 1% if not configured (matching SDK example)
+            slippage = self.ostium_service.config.slippage_percentage or 1.0
+            self.ostium_service.sdk.ostium.set_slippage_percentage(slippage)
 
-            # Execute trade
-            import asyncio
-
-            receipt = await asyncio.to_thread(
+            # Execute trade with retry logic
+            receipt = await self.ostium_service._execute_with_retry(
                 self.ostium_service.sdk.ostium.perform_trade,
+                "open_trade",
                 trade_params,
                 at_price=at_price,
             )
@@ -84,10 +84,11 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            receipt = await asyncio.to_thread(
-                self.ostium_service.sdk.ostium.close_trade, pair_id, trade_index
+            receipt = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.ostium.close_trade,
+                "close_trade",
+                pair_id,
+                trade_index,
             )
 
             return {
@@ -107,10 +108,12 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            await asyncio.to_thread(
-                self.ostium_service.sdk.ostium.update_tp, pair_id, trade_index, tp_price
+            await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.ostium.update_tp,
+                "update_tp",
+                pair_id,
+                trade_index,
+                tp_price,
             )
 
             return {"status": "updated", "tp_price": tp_price}
@@ -123,10 +126,12 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            await asyncio.to_thread(
-                self.ostium_service.sdk.ostium.update_sl, pair_id, trade_index, sl_price
+            await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.ostium.update_sl,
+                "update_sl",
+                pair_id,
+                trade_index,
+                sl_price,
             )
 
             return {"status": "updated", "sl_price": sl_price}
@@ -139,10 +144,10 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            trades = await asyncio.to_thread(
-                self.ostium_service.sdk.subgraph.get_open_trades, trader_address
+            trades = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.subgraph.get_open_trades,
+                "get_open_trades",
+                trader_address,
             )
 
             return list(trades) if trades else []
@@ -155,10 +160,11 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            metrics = await asyncio.to_thread(
-                self.ostium_service.sdk.get_open_trade_metrics, pair_id, trade_index
+            metrics = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.get_open_trade_metrics,
+                "get_open_trade_metrics",
+                pair_id,
+                trade_index,
             )
 
             return dict(metrics) if metrics else {}
@@ -171,10 +177,10 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            orders = await asyncio.to_thread(
-                self.ostium_service.sdk.subgraph.get_orders, trader_address
+            orders = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.subgraph.get_orders,
+                "get_orders",
+                trader_address,
             )
 
             return list(orders) if orders else []
@@ -187,10 +193,11 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            receipt = await asyncio.to_thread(
-                self.ostium_service.sdk.ostium.cancel_limit_order, pair_id, order_index
+            receipt = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.ostium.cancel_limit_order,
+                "cancel_limit_order",
+                pair_id,
+                order_index,
             )
 
             return {
@@ -215,10 +222,9 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            receipt = await asyncio.to_thread(
+            receipt = await self.ostium_service._execute_with_retry(
                 self.ostium_service.sdk.ostium.update_limit_order,
+                "update_limit_order",
                 pair_id,
                 order_index,
                 at_price,
@@ -241,11 +247,63 @@ class OstiumTradingProvider(BaseTradingProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            pairs = await asyncio.to_thread(self.ostium_service.sdk.subgraph.get_pairs)
+            pairs = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.subgraph.get_pairs,
+                "get_pairs",
+            )
 
             return list(pairs) if pairs else []
         except Exception as e:
             error = self.ostium_service.handle_service_error(e, "get_pairs")
             raise TradingProviderError(str(error), service_name=self.service_name) from e
+
+    async def get_pair_details(self, pair_id: str) -> dict[str, Any]:
+        """Get detailed information for a trading pair.
+
+        Args:
+            pair_id: The pair ID (from get_pairs() result)
+
+        Returns:
+            Dictionary with detailed pair information
+        """
+        try:
+            await self.ostium_service.initialize()
+
+            pair_details = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.subgraph.get_pair_details,
+                "get_pair_details",
+                pair_id,
+            )
+
+            return dict(pair_details) if pair_details else {}
+        except Exception as e:
+            error = self.ostium_service.handle_service_error(e, "get_pair_details")
+            raise TradingProviderError(str(error), service_name=self.service_name) from e
+
+    def parse_order_details(self, order_data: dict[str, Any]) -> dict[str, Any]:
+        """Parse order details using SDK utility function.
+
+        Args:
+            order_data: Order data from get_orders()
+
+        Returns:
+            Dictionary with parsed order details including:
+            - limit_type: Type of limit order
+            - pair_index: Pair index
+            - index: Order index
+            - Other order parameters
+        """
+        try:
+            # Use SDK utility to parse order details
+            # Returns: limit_type, _, _, _, _, _, _, pairIndex, index, _, _
+            parsed = get_order_details(order_data)
+
+            return {
+                "limit_type": parsed[0],
+                "pair_index": parsed[7],
+                "index": parsed[8],
+                "raw_data": order_data,
+            }
+        except Exception as e:
+            # If parsing fails, return raw data
+            return {"raw_data": order_data, "parse_error": str(e)}
