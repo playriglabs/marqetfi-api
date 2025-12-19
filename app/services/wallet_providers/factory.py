@@ -51,7 +51,7 @@ class WalletProviderFactory:
             )
 
         # Get config and create instance
-        config = cls._get_provider_config(provider_name)
+        config = await cls._get_provider_config(provider_name, db_session=None)
         provider = provider_class(config)
 
         # Initialize and cache
@@ -61,11 +61,14 @@ class WalletProviderFactory:
         return provider
 
     @classmethod
-    def _get_provider_config(cls, provider_name: str) -> Any:
+    async def _get_provider_config(cls, provider_name: str, db_session: Any = None) -> Any:
         """Get provider configuration based on provider name.
+
+        Tries to load from database first, falls back to environment variables.
 
         Args:
             provider_name: Provider name
+            db_session: Optional database session
 
         Returns:
             Provider configuration object
@@ -73,6 +76,53 @@ class WalletProviderFactory:
         Raises:
             ValueError: If provider name is unknown
         """
+        # Try to load from database first
+        try:
+            if db_session is not None:
+                from app.services.configuration_service import ConfigurationService
+
+                config_service = ConfigurationService(db_session)
+                db_config = await config_service.get_provider_config(provider_name, "wallet")
+                if db_config:
+                    if provider_name == "privy":
+                        from app.services.wallet_providers.privy.config import PrivyWalletConfig
+
+                        return PrivyWalletConfig(**db_config)
+                    elif provider_name == "dynamic":
+                        from app.services.wallet_providers.dynamic.config import DynamicWalletConfig
+
+                        return DynamicWalletConfig(**db_config)
+            else:
+                from app.core.database import get_session_maker
+
+                session_maker = get_session_maker()
+                async with session_maker() as session:
+                    try:
+                        from app.services.configuration_service import ConfigurationService
+
+                        config_service = ConfigurationService(session)
+                        db_config = await config_service.get_provider_config(
+                            provider_name, "wallet"
+                        )
+                        if db_config:
+                            if provider_name == "privy":
+                                from app.services.wallet_providers.privy.config import (
+                                    PrivyWalletConfig,
+                                )
+
+                                return PrivyWalletConfig(**db_config)
+                            elif provider_name == "dynamic":
+                                from app.services.wallet_providers.dynamic.config import (
+                                    DynamicWalletConfig,
+                                )
+
+                                return DynamicWalletConfig(**db_config)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Fall back to environment variables
         settings = get_settings()
 
         if provider_name == "privy":

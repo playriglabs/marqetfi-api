@@ -3,6 +3,7 @@
 from app.services.providers.base import (
     BasePriceProvider,
     BaseSettlementProvider,
+    BaseSwapProvider,
     BaseTradingProvider,
 )
 
@@ -13,6 +14,7 @@ class ProviderRegistry:
     _trading_providers: dict[str, type[BaseTradingProvider]] = {}
     _price_providers: dict[str, type[BasePriceProvider]] = {}
     _settlement_providers: dict[str, type[BaseSettlementProvider]] = {}
+    _swap_providers: dict[str, type[BaseSwapProvider]] = {}
 
     @classmethod
     def register_trading_provider(
@@ -62,3 +64,18 @@ class ProviderRegistry:
     def list_settlement_providers(cls) -> list[str]:
         """List all registered settlement provider names."""
         return list(cls._settlement_providers.keys())
+
+    @classmethod
+    def register_swap_provider(cls, name: str, provider_class: type[BaseSwapProvider]) -> None:
+        """Register a swap provider."""
+        cls._swap_providers[name] = provider_class
+
+    @classmethod
+    def get_swap_provider(cls, name: str) -> type[BaseSwapProvider] | None:
+        """Get a swap provider class by name."""
+        return cls._swap_providers.get(name)
+
+    @classmethod
+    def list_swap_providers(cls) -> list[str]:
+        """List all registered swap provider names."""
+        return list(cls._swap_providers.keys())

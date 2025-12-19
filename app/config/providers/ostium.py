@@ -40,6 +40,18 @@ class OstiumConfig(BaseProviderConfig):
         description="Fall back to private key if wallet provider fails",
     )
 
+    # Token requirements for deposits
+    required_token: str = Field(
+        default="USDC", description="Required token symbol for deposits (e.g., USDC)"
+    )
+    required_chain: str = Field(
+        default="arbitrum", description="Required chain for deposits (e.g., arbitrum)"
+    )
+    required_token_address: str = Field(
+        default="",
+        description="Required token contract address on the required chain",
+    )
+
     @field_validator("network")
     @classmethod
     def validate_network(cls, v: str) -> str:

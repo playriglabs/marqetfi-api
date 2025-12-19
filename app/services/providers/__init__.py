@@ -23,4 +23,16 @@ except ImportError:
     # Lighter SDK not installed - providers won't be available
     pass
 
+try:
+    from app.services.providers.lifi import LifiSwapProvider  # noqa: F401
+except ImportError:
+    # LI-FI provider not available
+    pass
+
+try:
+    from app.services.providers.symbiosis import SymbiosisSwapProvider  # noqa: F401
+except ImportError:
+    # Symbiosis provider not available
+    pass
+
 __all__: list[str] = []

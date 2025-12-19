@@ -28,6 +28,18 @@ class LighterConfig(BaseProviderConfig):
     )
     network: str = Field(default="mainnet", description="Network: 'mainnet' or 'testnet'")
 
+    # Token requirements for deposits
+    required_token: str = Field(
+        default="USDC", description="Required token symbol for deposits (e.g., USDC)"
+    )
+    required_chain: str = Field(
+        default="ethereum", description="Required chain for deposits (e.g., ethereum)"
+    )
+    required_token_address: str = Field(
+        default="",
+        description="Required token contract address on the required chain",
+    )
+
     def create_api_client(self) -> Any:
         """Create Lighter API client instance."""
 

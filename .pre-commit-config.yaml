@@ -52,17 +52,7 @@ repos:
           celery,
         ]
         args: [
-          '--python-version=3.12',
-          '--warn-return-any',
-          '--warn-unused-configs',
-          '--disallow-untyped-defs',
-          '--disallow-incomplete-defs',
-          '--check-untyped-defs',
-          '--no-implicit-optional',
-          '--warn-redundant-casts',
-          '--warn-unused-ignores',
-          '--warn-no-return',
-          '--strict-equality',
+          '--config-file=pyproject.toml',
         ]
         exclude: ^(tests/|migrations/|alembic/versions/)
 

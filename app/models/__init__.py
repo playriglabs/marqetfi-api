@@ -1,7 +1,9 @@
 """Models module."""
 
 from app.models.analytics import TradeHistory, UserStats
+from app.models.app_configuration import AppConfiguration, ProviderConfiguration
 from app.models.auth import OAuthConnection, Session, WalletConnection
+from app.models.deposit import Deposit, TokenSwap
 from app.models.enums import (
     AuthMethod,
     FeatureAccessLevel,
@@ -38,6 +40,12 @@ __all__ = [
     # Analytics
     "TradeHistory",
     "UserStats",
+    # Deposit
+    "Deposit",
+    "TokenSwap",
+    # Configuration
+    "AppConfiguration",
+    "ProviderConfiguration",
     # Enums
     "AuthMethod",
     "WalletType",

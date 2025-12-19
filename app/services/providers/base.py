@@ -159,3 +159,71 @@ class BaseSettlementProvider(BaseExternalService, ABC):
     async def get_transaction_status(self, transaction_hash: str) -> dict[str, Any]:
         """Get status of a transaction."""
         pass
+
+
+class BaseSwapProvider(BaseExternalService, ABC):
+    """Abstract interface for cross-chain token swaps."""
+
+    @abstractmethod
+    async def get_swap_quote(
+        self,
+        from_token: str,
+        to_token: str,
+        from_chain: str,
+        to_chain: str,
+        amount: str,
+    ) -> dict[str, Any]:
+        """Get a quote for a token swap.
+
+        Args:
+            from_token: Source token address
+            to_token: Destination token address
+            from_chain: Source chain identifier
+            to_chain: Destination chain identifier
+            amount: Amount to swap (as string to preserve precision)
+
+        Returns:
+            Dictionary containing quote information including:
+            - estimated_amount: Estimated output amount
+            - fee: Swap fee
+            - transaction: Transaction data (if needed)
+            - validity: Quote validity information
+        """
+        pass
+
+    @abstractmethod
+    async def execute_swap(
+        self,
+        quote: dict[str, Any],
+        wallet_address: str,
+    ) -> dict[str, Any]:
+        """Execute a token swap.
+
+        Args:
+            quote: Quote data from get_swap_quote
+            wallet_address: Wallet address to execute swap from
+
+        Returns:
+            Dictionary containing:
+            - transaction_hash: Transaction hash
+            - status: Swap status
+            - estimated_completion: Estimated completion time
+        """
+        pass
+
+    @abstractmethod
+    async def get_swap_status(self, transaction_hash: str) -> dict[str, Any]:
+        """Get status of a swap transaction.
+
+        Args:
+            transaction_hash: Transaction hash from execute_swap
+
+        Returns:
+            Dictionary containing:
+            - status: Swap status (pending, completed, failed)
+            - transaction_hash: Transaction hash
+            - from_amount: Source amount
+            - to_amount: Destination amount (if completed)
+            - error: Error message (if failed)
+        """
+        pass
