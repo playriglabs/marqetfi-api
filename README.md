@@ -13,6 +13,7 @@ make setup
 # 2. Configure environment
 cp .env.example .env
 # Edit .env with your settings
+# Note: All configurations can be managed through admin API (database-backed)
 
 # 3. Start services (PostgreSQL, Redis, RabbitMQ)
 make docker-up
@@ -182,6 +183,7 @@ graph TB
 - 📈 **Analytics**: P&L calculations and comprehensive reporting
 - 🔗 **Blockchain Integration**: Arbitrum Network for USDC settlement
 - 💧 **Liquidity**: Ostium Protocol integration for trading liquidity
+- 💰 **Deposit & Swap**: Automatic token swapping for deposits using LI-FI
 
 ## Development
 
@@ -230,6 +232,12 @@ Hooks run:
 
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
+
+## Documentation
+
+- [Multi-Provider Routing](./docs/multi-provider-routing.md) - Routing requests to appropriate providers
+- [Deposit & Swap Integration](./docs/deposit-swap-integration.md) - Automatic token swapping for deposits
+- [Configuration Management](./docs/configuration-management.md) - Database-backed configuration management
 
 ## Deployment
 

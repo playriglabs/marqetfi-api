@@ -2,14 +2,16 @@
 
 from typing import Any
 
+from app.config.providers.lifi import LifiConfig
 from app.config.providers.lighter import LighterConfig
 from app.config.providers.ostium import OstiumConfig
 
 # Import providers to trigger auto-registration
-from app.services.providers import lighter, ostium  # noqa: F401
+from app.services.providers import lifi, lighter, ostium, symbiosis  # noqa: F401
 from app.services.providers.base import (
     BasePriceProvider,
     BaseSettlementProvider,
+    BaseSwapProvider,
     BaseTradingProvider,
 )
 from app.services.providers.exceptions import ExternalServiceError
@@ -22,6 +24,7 @@ class ProviderFactory:
     _trading_provider_cache: dict[str, BaseTradingProvider] = {}
     _price_provider_cache: dict[str, BasePriceProvider] = {}
     _settlement_provider_cache: dict[str, BaseSettlementProvider] = {}
+    _swap_provider_cache: dict[str, BaseSwapProvider] = {}
 
     @classmethod
     async def _get_provider_config(cls, provider_name: str, db_session: Any = None) -> Any:
@@ -112,6 +115,37 @@ class ProviderFactory:
             )
 
         if provider_name == "lighter":
+            # Try to load from database first
+            try:
+                if db_session is not None:
+                    from app.services.configuration_service import ConfigurationService
+
+                    config_service = ConfigurationService(db_session)
+                    lighter_db_config: dict[str, Any] | None = (
+                        await config_service.get_provider_config("lighter", "trading")
+                    )
+                    if lighter_db_config:
+                        return LighterConfig(**lighter_db_config)
+                else:
+                    from app.core.database import get_session_maker
+
+                    session_maker = get_session_maker()
+                    async with session_maker() as session:
+                        try:
+                            from app.services.configuration_service import ConfigurationService
+
+                            config_service = ConfigurationService(session)
+                            lighter_db_config_session: dict[str, Any] | None = (
+                                await config_service.get_provider_config("lighter", "trading")
+                            )
+                            if lighter_db_config_session:
+                                return LighterConfig(**lighter_db_config_session)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            # Fall back to environment variables
             from app.config import get_settings
 
             settings = get_settings()
@@ -125,6 +159,51 @@ class ProviderFactory:
                 timeout=getattr(settings, "lighter_timeout", 30),
                 retry_attempts=getattr(settings, "lighter_retry_attempts", 3),
                 retry_delay=getattr(settings, "lighter_retry_delay", 1.0),
+            )
+
+        if provider_name == "lifi":
+            # Try to load from database first
+            try:
+                if db_session is not None:
+                    from app.services.configuration_service import ConfigurationService
+
+                    config_service = ConfigurationService(db_session)
+                    lifi_db_config: dict[str, Any] | None = (
+                        await config_service.get_provider_config("lifi", "swap")
+                    )
+                    if lifi_db_config:
+                        return LifiConfig(**lifi_db_config)
+                else:
+                    from app.core.database import get_session_maker
+
+                    session_maker = get_session_maker()
+                    async with session_maker() as session:
+                        try:
+                            from app.services.configuration_service import ConfigurationService
+
+                            config_service = ConfigurationService(session)
+                            lifi_db_config_session: dict[str, Any] | None = (
+                                await config_service.get_provider_config("lifi", "swap")
+                            )
+                            if lifi_db_config_session:
+                                return LifiConfig(**lifi_db_config_session)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            # Fall back to environment variables
+            from app.config import get_settings
+
+            settings = get_settings()
+
+            return LifiConfig(
+                enabled=getattr(settings, "lifi_enabled", True),
+                api_url=getattr(settings, "LIFI_API_URL", "https://li.xyz/v1"),
+                api_key=getattr(settings, "LIFI_API_KEY", None),
+                timeout=getattr(settings, "lifi_timeout", 30),
+                retry_attempts=getattr(settings, "lifi_retry_attempts", 3),
+                retry_delay=getattr(settings, "lifi_retry_delay", 1.0),
             )
 
         raise ValueError(f"Unknown provider: {provider_name}")
@@ -152,7 +231,7 @@ class ProviderFactory:
 
         # Get config and create instance
         config = await cls._get_provider_config(provider_name, db_session=None)
-        provider = provider_class(config)
+        provider = provider_class(config)  # type: ignore[arg-type]
 
         # Initialize and cache
         await provider.initialize()
@@ -183,7 +262,7 @@ class ProviderFactory:
 
         # Get config and create instance
         config = await cls._get_provider_config(provider_name, db_session=None)
-        provider = provider_class(config)
+        provider = provider_class(config)  # type: ignore[arg-type]
 
         # Initialize and cache
         await provider.initialize()
@@ -216,10 +295,41 @@ class ProviderFactory:
 
         # Get config and create instance
         config = await cls._get_provider_config(provider_name, db_session=None)
-        provider = provider_class(config)
+        provider = provider_class(config)  # type: ignore[arg-type]
 
         # Initialize and cache
         await provider.initialize()
         cls._settlement_provider_cache[provider_name] = provider
+
+        return provider
+
+    @classmethod
+    async def get_swap_provider(cls, provider_name: str | None = None) -> BaseSwapProvider:
+        """Get configured swap provider instance."""
+        if provider_name is None:
+            from app.config import get_settings
+
+            settings = get_settings()
+            provider_name = getattr(settings, "SWAP_PROVIDER", "lifi")
+
+        # Check cache
+        if provider_name in cls._swap_provider_cache:
+            return cls._swap_provider_cache[provider_name]
+
+        # Get provider class
+        provider_class = ProviderRegistry.get_swap_provider(provider_name)
+        if not provider_class:
+            raise ExternalServiceError(
+                f"Swap provider '{provider_name}' not found. "
+                f"Available: {ProviderRegistry.list_swap_providers()}"
+            )
+
+        # Get config and create instance
+        config = await cls._get_provider_config(provider_name, db_session=None)
+        provider = provider_class(config)  # type: ignore[arg-type]
+
+        # Initialize and cache
+        await provider.initialize()
+        cls._swap_provider_cache[provider_name] = provider
 
         return provider

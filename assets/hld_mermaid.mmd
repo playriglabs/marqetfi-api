@@ -31,8 +31,10 @@ graph TB
         TradingService["Trading Service<br/>Order & Position Management"]
         SettlementService["Settlement Service<br/>Trade Execution"]
         PriceFeedService["Price Feed Service<br/>Real-time Market Data"]
+        DepositService["Deposit Service<br/>Deposit & Auto-Swap Management"]
         ProviderRouter["Provider Router<br/>Multi-Provider Routing"]
         ProviderFactory["Provider Factory<br/>━━━━━━━━━━━━━━━━<br/>Ostium / Lighter"]
+        SwapProviderFactory["Swap Provider Factory<br/>━━━━━━━━━━━━━━━━<br/>LI-FI / Symbiosis"]
 
         TradingService --> SettlementService
         TradingService --> PriceFeedService
@@ -42,6 +44,8 @@ graph TB
         PriceFeedService --> ProviderFactory
         PriceFeedService --> ProviderRouter
         ProviderRouter --> ProviderFactory
+        DepositService --> SwapProviderFactory
+        DepositService --> ProviderRouter
     end
 
     subgraph BackgroundProcessing["⚡ Background Processing"]
@@ -81,6 +85,11 @@ graph TB
             PrivyAPI["Privy.io API<br/>MPC Wallet Provider"]
             DynamicAPI["Dynamic.xyz API<br/>MPC Wallet Provider"]
         end
+
+        subgraph SwapProviders["🔄 Swap Providers"]
+            LifiAPI["LI-FI API<br/>Cross-Chain Swaps"]
+            SymbiosisAPI["Symbiosis API<br/>Cross-Chain Swaps"]
+        end
     end
 
     subgraph SupportServices["📊 Support Services"]
@@ -99,6 +108,7 @@ graph TB
     %% Gateway to Services
     APIGateway --> AuthService
     APIGateway --> TradingService
+    APIGateway --> DepositService
     APIGateway --> AdminService
 
     %% Auth Layer Connections
@@ -118,8 +128,12 @@ graph TB
     SettlementService --> TaskQueue
     SettlementService --> Arbitrum
     PriceFeedService --> Redis
+    DepositService --> PostgreSQL
+    DepositService --> TaskQueue
     ProviderFactory --> Ostium
     ProviderFactory --> Lighter
+    SwapProviderFactory --> LifiAPI
+    SwapProviderFactory --> SymbiosisAPI
 
     %% Admin Connections
     OstiumAdminService --> PostgreSQL
@@ -150,8 +164,8 @@ graph TB
     class WebApp,MobileApp clientStyle
     class APIGateway gatewayStyle
     class AuthService,OAuthService,WalletAuthService,WalletProviderFactory,MPCWalletService authStyle
-    class WalletService,TradingService,SettlementService,PriceFeedService,ProviderRouter,ProviderFactory coreStyle
+    class WalletService,TradingService,SettlementService,PriceFeedService,DepositService,ProviderRouter,ProviderFactory,SwapProviderFactory coreStyle
     class CeleryWorker,CeleryBeat,TaskQueue backgroundStyle
     class AdminService,OstiumAdminService adminStyle
-    class PostgreSQL,RabbitMQ,Redis,Ostium,Lighter,Arbitrum,PrivyAPI,DynamicAPI externalStyle
+    class PostgreSQL,RabbitMQ,Redis,Ostium,Lighter,Arbitrum,PrivyAPI,DynamicAPI,LifiAPI,SymbiosisAPI externalStyle
     class RiskMgmt,Analytics,Monitoring supportStyle

@@ -14,6 +14,7 @@ from app.models.enums import AuthMethod, FeatureAccessLevel, WalletType
 if TYPE_CHECKING:
     from app.models.analytics import TradeHistory, UserStats
     from app.models.auth import OAuthConnection, Session, WalletConnection
+    from app.models.deposit import Deposit
     from app.models.trading import Order, Position, Trade
     from app.models.wallet import Wallet
 
@@ -83,6 +84,9 @@ class User(Base):
     )
     user_stats: Mapped[list["UserStats"]] = relationship(
         "UserStats", back_populates="user", cascade="all, delete-orphan"
+    )
+    deposits: Mapped[list["Deposit"]] = relationship(
+        "Deposit", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

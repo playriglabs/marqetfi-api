@@ -166,6 +166,21 @@ class Settings(BaseSettings):
         description="Asset-to-provider routing map (overrides category defaults)",
     )
 
+    # Swap Provider Settings
+    SWAP_PROVIDER: str = Field(
+        default="lifi", description="Default swap provider (lifi, symbiosis)"
+    )
+    LIFI_API_URL: str = Field(default="https://li.xyz/v1", description="LI-FI API base URL")
+    LIFI_API_KEY: str | None = Field(default=None, description="LI-FI API key (if required)")
+    lifi_enabled: bool = Field(default=True, description="Enable LI-FI swap provider")
+    lifi_timeout: int = Field(default=30, description="LI-FI request timeout in seconds")
+    lifi_retry_attempts: int = Field(default=3, description="LI-FI retry attempts")
+    lifi_retry_delay: float = Field(default=1.0, description="LI-FI retry delay in seconds")
+    SYMBIOSIS_API_URL: str = Field(
+        default="https://api.symbiosis.finance",
+        description="Symbiosis API base URL (future)",
+    )
+
     class Config:
         """Pydantic config."""
 
