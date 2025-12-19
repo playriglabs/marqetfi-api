@@ -1,8 +1,12 @@
 """Trading schemas."""
 
+from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from app.models.enums import OrderSide, OrderType
 
 
 class TradeCreate(BaseModel):
@@ -21,13 +25,36 @@ class TradeCreate(BaseModel):
     )
 
 
+class OrderCreate(BaseModel):
+    """Schema for creating an order."""
+
+    order_type: OrderType
+    side: OrderSide
+    asset: str
+    quote: str
+    quantity: Decimal
+    price: Decimal | None = None
+    leverage: int = Field(..., ge=1)
+    tp: Decimal | None = None
+    sl: Decimal | None = None
+
+
 class TradeResponse(BaseModel):
     """Schema for trade response."""
 
-    transaction_hash: str = Field(..., description="Transaction hash")
-    pair_id: int | None = Field(None, description="Pair ID")
-    trade_index: int | None = Field(None, description="Trade index")
-    status: str = Field(..., description="Trade status")
+    id: int | None = Field(default=None, description="Trade ID")
+    asset: str | None = Field(default=None, description="Asset symbol")
+    quote: str | None = Field(default=None, description="Quote currency")
+    side: str | None = Field(default=None, description="Trade side (long/short)")
+    entry_price: Decimal | None = Field(default=None, description="Entry price")
+    quantity: Decimal | None = Field(default=None, description="Trade quantity")
+    leverage: int | None = Field(default=None, description="Leverage multiplier")
+    status: str = Field(default="", description="Trade status")
+    pnl: Decimal | None = Field(default=None, description="Profit and loss")
+    opened_at: datetime | None = Field(default=None, description="Trade open timestamp")
+    transaction_hash: str | None = Field(default=None, description="Transaction hash")
+    pair_id: int | None = Field(default=None, description="Pair ID")
+    trade_index: int | None = Field(default=None, description="Trade index")
 
 
 class TradeUpdate(BaseModel):

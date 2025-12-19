@@ -47,6 +47,80 @@ class UserService:
         user = await UserService.get_user_by_email(db, email)
         if not user:
             return None
+        if not user.hashed_password:
+            return None
         if not verify_password(password, user.hashed_password):
             return None
+        return user
+
+    @staticmethod
+    async def get_user_by_auth0_id(
+        db: AsyncSession,
+        auth0_user_id: str,
+    ) -> User | None:
+        """Get user by Auth0 user ID."""
+        from sqlalchemy import select
+
+        result = await db.execute(select(User).where(User.auth0_user_id == auth0_user_id))
+        return result.scalar_one_or_none()  # type: ignore
+
+    @staticmethod
+    async def sync_user_from_auth0(
+        db: AsyncSession,
+        auth0_userinfo: dict,
+    ) -> User:
+        """Sync user from Auth0 user info."""
+
+        from sqlalchemy import select
+
+        from app.models.enums import AuthMethod
+
+        auth0_user_id = auth0_userinfo.get("sub", "")
+        email = auth0_userinfo.get("email", "")
+        name = auth0_userinfo.get("name", "")
+        username = auth0_userinfo.get("nickname") or email.split("@")[0] if email else "user"
+
+        # Determine auth method from Auth0 user ID format
+        auth_method = AuthMethod.EMAIL
+        if "google-oauth2" in auth0_user_id:
+            auth_method = AuthMethod.GOOGLE
+        elif "apple" in auth0_user_id:
+            auth_method = AuthMethod.APPLE
+
+        # Check if user exists by Auth0 ID
+        result = await db.execute(select(User).where(User.auth0_user_id == auth0_user_id))
+        user = result.scalar_one_or_none()
+
+        if user:
+            # Update existing user
+            user.email = email
+            user.auth_method = auth_method
+            if name and not user.username:
+                user.username = username
+        else:
+            # Check if user exists by email
+            existing_user = await UserService.get_user_by_email(db, email)
+            if existing_user:
+                # Link Auth0 account to existing user
+                existing_user.auth0_user_id = auth0_user_id
+                existing_user.auth_method = auth_method
+                user = existing_user
+            else:
+                # Create new user
+                from app.models.enums import FeatureAccessLevel, WalletType
+
+                user = User(
+                    email=email,
+                    username=username,
+                    auth0_user_id=auth0_user_id,
+                    auth_method=auth_method,
+                    wallet_type=WalletType.NONE,
+                    feature_access_level=FeatureAccessLevel.FULL,
+                    email_verified=auth0_userinfo.get("email_verified", False),
+                )
+                db.add(user)
+
+        await db.commit()
+        await db.refresh(user)
+
         return user

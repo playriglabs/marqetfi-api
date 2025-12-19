@@ -38,6 +38,9 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
+exclude = [
+    "alembic/versions/.*",
+]
 
 [[tool.mypy.overrides]]
 module = [
@@ -50,6 +53,17 @@ module = [
     "uvicorn.*",
     "celery.*",
     "typer.*",
+    "auth0.*",
+    "privy.*",
+    "cython.*",
+    "email_validator.*",
+    "traitlets.*",
+    "cryptography.*",
+    "httpx.*",
+    "eth_account.*",
+    "web3.*",
+    "alembic.*",
+    "pydantic.*",
 ]
 ignore_missing_imports = true
 
@@ -57,6 +71,7 @@ ignore_missing_imports = true
 module = [
     "app.repositories.*",
     "app.services.*",
+    "app.config.providers.lighter",
 ]
 warn_unused_ignores = false
 
@@ -78,7 +93,11 @@ ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "I001",  # import sorting (handled by isort)
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

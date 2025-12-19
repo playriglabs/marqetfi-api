@@ -64,7 +64,7 @@ repos:
           '--warn-no-return',
           '--strict-equality',
         ]
-        exclude: ^(tests/|migrations/)
+        exclude: ^(tests/|migrations/|alembic/versions/)
 
 default_language_version:
   python: python3

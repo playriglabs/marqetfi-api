@@ -39,3 +39,6 @@ temp/
 # Test generation
 .coverage
 htmlcov/
+*_cache
+*log*
+*cache*

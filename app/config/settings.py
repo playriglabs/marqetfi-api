@@ -44,6 +44,74 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Auth0 Configuration
+    AUTH0_DOMAIN: str = ""
+    AUTH0_CLIENT_ID: str = ""
+    AUTH0_CLIENT_SECRET: str = ""
+    AUTH0_AUDIENCE: str = ""
+    AUTH0_ALGORITHM: str = "RS256"
+    AUTH0_MANAGEMENT_CLIENT_ID: str = ""
+    AUTH0_MANAGEMENT_CLIENT_SECRET: str = ""
+    AUTH0_GOOGLE_ENABLED: bool = True
+    AUTH0_APPLE_ENABLED: bool = True
+    AUTH0_OAUTH_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/oauth/callback"
+
+    # Wallet Provider Configuration
+    WALLET_PROVIDER: str = Field(
+        default="none",
+        description="Wallet provider name (privy/dynamic/none)",
+    )
+
+    # Privy Configuration
+    PRIVY_ENABLED: bool = Field(default=True, description="Enable Privy wallet provider")
+    PRIVY_APP_ID: str = Field(default="", description="Privy App ID")
+    PRIVY_APP_SECRET: str = Field(default="", description="Privy App Secret")
+    PRIVY_API_URL: str = Field(
+        default="https://api.privy.io",
+        description="Privy API base URL",
+    )
+    PRIVY_USE_EMBEDDED_WALLETS: bool = Field(
+        default=True,
+        description="Use Privy embedded wallets",
+    )
+    PRIVY_TIMEOUT: int = Field(default=30, description="Privy API timeout in seconds")
+    PRIVY_RETRY_ATTEMPTS: int = Field(default=3, description="Privy retry attempts")
+    PRIVY_RETRY_DELAY: float = Field(default=1.0, description="Privy retry delay in seconds")
+
+    # Dynamic Configuration
+    DYNAMIC_ENABLED: bool = Field(default=True, description="Enable Dynamic wallet provider")
+    DYNAMIC_API_KEY: str = Field(default="", description="Dynamic API key")
+    DYNAMIC_API_SECRET: str = Field(default="", description="Dynamic API secret")
+    DYNAMIC_API_URL: str = Field(
+        default="https://api.dynamic.xyz",
+        description="Dynamic API base URL",
+    )
+    DYNAMIC_ENVIRONMENT: str = Field(
+        default="production",
+        description="Dynamic environment (production/sandbox)",
+    )
+    DYNAMIC_TIMEOUT: int = Field(default=30, description="Dynamic API timeout in seconds")
+    DYNAMIC_RETRY_ATTEMPTS: int = Field(default=3, description="Dynamic retry attempts")
+    DYNAMIC_RETRY_DELAY: float = Field(default=1.0, description="Dynamic retry delay in seconds")
+
+    # Ostium Wallet Provider Settings
+    OSTIUM_USE_WALLET_PROVIDER: bool = Field(
+        default=False,
+        description="Enable wallet provider integration for Ostium",
+    )
+    OSTIUM_FALLBACK_TO_PRIVATE_KEY: bool = Field(
+        default=True,
+        description="Fall back to private key if wallet provider fails",
+    )
+    OSTIUM_WALLET_PROVIDER_ID: str | None = Field(
+        default=None,
+        description="Provider-specific wallet ID for Ostium (optional)",
+    )
+
+    # Legacy Wallet Configuration (kept for backward compatibility)
+    ENABLE_MPC_WALLETS: bool = True
+    ENABLE_EXTERNAL_WALLETS: bool = True
+
     # CORS
     CORS_ORIGINS: list[str] = ["*"]
     CORS_CREDENTIALS: bool = True

@@ -55,7 +55,8 @@ class LighterService(BaseExternalService):
             # Try to get account info as a health check
             account_api = lighter.AccountApi(self._client)
             # Try to get account with index 0 as health check
-            await asyncio.to_thread(account_api.account, by="index", value="0")
+            result = await asyncio.to_thread(account_api.account, by="index", value="0")
+            _ = result  # Use result to avoid unused coroutine warning
             return True
         except Exception as e:
             logger.warning(f"{self.service_name} health check failed: {e}")

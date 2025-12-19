@@ -69,7 +69,7 @@ class LighterTradingProvider(BaseTradingProvider):
                 order_data["price"] = at_price
 
             # Create order
-            result = await asyncio.to_thread(order_api.create_order, order_data)
+            result = await asyncio.to_thread(order_api.create_order, order_data)  # type: ignore[attr-defined]
 
             return {
                 "transaction_hash": str(result.get("id", "")),
@@ -91,7 +91,7 @@ class LighterTradingProvider(BaseTradingProvider):
             order_api = lighter.OrderApi(self.lighter_service.client)
 
             # Cancel order (Lighter may use order ID instead of pair_id/index)
-            result = await asyncio.to_thread(order_api.cancel_order, order_id=str(trade_index))
+            result = await asyncio.to_thread(order_api.cancel_order, order_id=str(trade_index))  # type: ignore[attr-defined]
 
             return {
                 "transaction_hash": str(result.get("id", "")),
@@ -171,7 +171,7 @@ class LighterTradingProvider(BaseTradingProvider):
 
             # Get orders for account
             # This is a placeholder - adjust based on actual API
-            orders = await asyncio.to_thread(order_api.get_orders, account=trader_address)
+            orders = await asyncio.to_thread(order_api.get_orders, account=trader_address)  # type: ignore[attr-defined]
 
             return list(orders) if orders else []
         except Exception as e:
@@ -189,7 +189,7 @@ class LighterTradingProvider(BaseTradingProvider):
 
             order_api = lighter.OrderApi(self.lighter_service.client)
 
-            result = await asyncio.to_thread(order_api.cancel_order, order_id=str(order_index))
+            result = await asyncio.to_thread(order_api.cancel_order, order_id=str(order_index))  # type: ignore[attr-defined]
 
             return {
                 "transaction_hash": str(result.get("id", "")),
@@ -217,7 +217,9 @@ class LighterTradingProvider(BaseTradingProvider):
 
             # Update order - adjust based on actual API
             result = await asyncio.to_thread(
-                order_api.update_order, order_id=str(order_index), price=at_price
+                order_api.update_order,  # type: ignore[attr-defined]
+                order_id=str(order_index),
+                price=at_price,
             )
 
             return {
@@ -239,7 +241,7 @@ class LighterTradingProvider(BaseTradingProvider):
 
             # Get markets/pairs from Lighter API
             # This is a placeholder - adjust based on actual API
-            market_api = lighter.MarketApi(self.lighter_service.client)
+            market_api = lighter.MarketApi(self.lighter_service.client)  # type: ignore[attr-defined]
             markets = await asyncio.to_thread(market_api.get_markets)
 
             return list(markets) if markets else []

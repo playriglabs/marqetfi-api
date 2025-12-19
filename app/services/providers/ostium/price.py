@@ -30,10 +30,13 @@ class OstiumPriceProvider(BasePriceProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
             # SDK returns (price, _) but we need to handle it and provide timestamp/source
-            result = await asyncio.to_thread(self.ostium_service.sdk.price.get_price, asset, quote)
+            result = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.price.get_price,
+                "get_price",
+                asset,
+                quote,
+            )
 
             # Handle both 2-value and 3-value returns for compatibility
             if isinstance(result, tuple):
@@ -64,12 +67,17 @@ class OstiumPriceProvider(BasePriceProvider):
 
             results: dict[str, tuple[float, int, str]] = {}
 
-            # Fetch prices concurrently
-            tasks = [
-                asyncio.to_thread(self.ostium_service.sdk.price.get_price, asset, quote)
-                for asset, quote in assets
-            ]
+            # Fetch prices concurrently with retry logic for each
+            async def get_price_with_retry(asset: str, quote: str) -> Any:
+                """Get price with retry logic."""
+                return await self.ostium_service._execute_with_retry(
+                    self.ostium_service.sdk.price.get_price,
+                    f"get_price({asset}/{quote})",
+                    asset,
+                    quote,
+                )
 
+            tasks = [get_price_with_retry(asset, quote) for asset, quote in assets]
             prices = await asyncio.gather(*tasks, return_exceptions=True)
 
             for (asset, quote), price_data in zip(assets, prices, strict=False):
@@ -103,9 +111,10 @@ class OstiumPriceProvider(BasePriceProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            pairs = await asyncio.to_thread(self.ostium_service.sdk.subgraph.get_pairs)
+            pairs = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.subgraph.get_pairs,
+                "get_pairs",
+            )
 
             return list(pairs) if pairs else []
         except Exception as e:
@@ -124,10 +133,10 @@ class OstiumPriceProvider(BasePriceProvider):
         try:
             await self.ostium_service.initialize()
 
-            import asyncio
-
-            pair_details = await asyncio.to_thread(
-                self.ostium_service.sdk.subgraph.get_pair_details, pair_id
+            pair_details = await self.ostium_service._execute_with_retry(
+                self.ostium_service.sdk.subgraph.get_pair_details,
+                "get_pair_details",
+                pair_id,
             )
 
             return dict(pair_details) if pair_details else {}
