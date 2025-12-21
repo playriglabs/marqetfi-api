@@ -11,7 +11,8 @@ from app.core.security import create_access_token, create_refresh_token
 from app.models.auth import OAuthConnection, Session
 from app.models.enums import AuthMethod, FeatureAccessLevel, WalletType
 from app.models.user import User
-from app.services.auth0_service import Auth0Service
+from app.services.providers.factory import ProviderFactory
+from app.services.providers.registry import ProviderRegistry
 from app.services.user_service import UserService
 
 settings = get_settings()
@@ -22,7 +23,6 @@ class AuthenticationService:
 
     def __init__(self) -> None:
         """Initialize authentication service."""
-        self.auth0_service = Auth0Service()
         self.user_service = UserService()
 
     async def register_with_email(
@@ -51,8 +51,13 @@ class AuthenticationService:
         if existing_user:
             raise ValueError("User with this email already exists")
 
-        # Register user in Auth0
-        auth0_user = await self.auth0_service.register_user(
+        # Register user via Auth0
+        # Note: Auth0 provider doesn't have register_user, so we keep direct Auth0Service for now
+        # This could be added to BaseAuthProvider if needed
+        from app.services.auth0_service import Auth0Service
+
+        auth0_service = Auth0Service()
+        auth0_user = await auth0_service.register_user(
             email=email,
             password=password,
             username=username,
@@ -147,14 +152,21 @@ class AuthenticationService:
         Returns:
             Tuple of (User, tokens dict)
         """
-        # Exchange code for tokens
-        token_response = await self.auth0_service.exchange_code_for_tokens(
-            code=code,
-            redirect_uri=redirect_uri,
-        )
+        # Exchange code for tokens via Auth0 provider
+        auth0_provider = await ProviderFactory.get_auth_provider("auth0")
+        # Note: OAuth-specific methods are on the provider
+        from app.services.providers.auth0.provider import Auth0AuthProvider
 
-        # Get user info from Auth0
-        userinfo = await self.auth0_service.get_userinfo(token_response["access_token"])
+        if isinstance(auth0_provider, Auth0AuthProvider):
+            token_response = await auth0_provider.exchange_code_for_tokens(code, redirect_uri)
+            userinfo = await auth0_provider.get_userinfo(token_response["access_token"])
+        else:
+            # Fallback to direct service
+            from app.services.auth0_service import Auth0Service
+
+            auth0_service = Auth0Service()
+            token_response = await auth0_service.exchange_code_for_tokens(code, redirect_uri)
+            userinfo = await auth0_service.get_userinfo(token_response["access_token"])
 
         # Create or update user
         user = await self.create_or_update_user_from_auth0(db, userinfo)
@@ -241,6 +253,200 @@ class AuthenticationService:
 
         return user
 
+    async def handle_provider_authentication(
+        self,
+        db: AsyncSession,
+        access_token: str,
+        provider_name: str | None = None,
+    ) -> tuple[User, dict[str, Any]]:
+        """Handle authentication with access token from any provider.
+
+        Args:
+            db: Database session
+            access_token: Provider access token
+            provider_name: Optional provider name. If None, will detect from token.
+
+        Returns:
+            Tuple of (User, tokens dict)
+
+        Raises:
+            ValueError: If token is invalid
+        """
+        # Detect provider from token if not specified
+        if provider_name is None:
+            provider_name = await self._detect_provider_from_token(access_token)
+            if not provider_name:
+                raise ValueError("Could not detect authentication provider from token")
+
+        # Get provider and verify token
+        provider = await ProviderFactory.get_auth_provider(provider_name)
+        token_payload = await provider.verify_access_token(access_token)
+        if not token_payload:
+            raise ValueError(f"Invalid {provider_name} access token")
+
+        # Extract user ID from token
+        user_id = provider.extract_user_id_from_token(token_payload)
+        if not user_id:
+            raise ValueError(f"Invalid {provider_name} token: missing user ID")
+
+        # Get user info from provider
+        provider_user = await provider.get_user_by_id(user_id)
+        if not provider_user:
+            raise ValueError(f"{provider_name} user not found")
+
+        # Create or update user
+        user = await self.create_or_update_user_from_provider(db, provider_user, provider_name)
+
+        # Generate tokens
+        tokens = await self._generate_tokens(db, user)
+
+        return user, tokens
+
+    async def _detect_provider_from_token(self, token: str) -> str | None:
+        """Detect authentication provider from token.
+
+        Args:
+            token: Access token
+
+        Returns:
+            Provider name or None if cannot detect
+        """
+        # Try each registered provider
+        for provider_name in ProviderRegistry.list_auth_providers():
+            try:
+                provider = await ProviderFactory.get_auth_provider(provider_name)
+                payload = await provider.verify_access_token(token)
+                if payload:
+                    return provider_name
+            except Exception:
+                continue
+        return None
+
+    async def create_or_update_user_from_provider(
+        self,
+        db: AsyncSession,
+        provider_userinfo: dict[str, Any],
+        provider_name: str,
+    ) -> User:
+        """Create or update user from provider user info.
+
+        Args:
+            db: Database session
+            provider_userinfo: Provider user info
+            provider_name: Provider name (auth0, privy, etc.)
+
+        Returns:
+            User instance
+        """
+        provider_user_id = provider_userinfo.get("id") or provider_userinfo.get("user_id")
+        if not provider_user_id:
+            raise ValueError(f"{provider_name} user info missing user ID")
+
+        # Extract email from user info or linked accounts
+        email = provider_userinfo.get("email")
+        if not email:
+            # Try to get email from linked accounts
+            linked_accounts = provider_userinfo.get("linked_accounts", [])
+            for account in linked_accounts:
+                if isinstance(account, dict) and account.get("type") == "email":
+                    email = account.get("address") or account.get("email")
+                    break
+
+        if not email:
+            # Generate a placeholder email if none found
+            email = f"{provider_name}-{provider_user_id}@{provider_name}.local"
+
+        # Generate username from email or use provider user ID
+        username = (
+            email.split("@")[0]
+            if email and "@" in email
+            else f"{provider_name}-{provider_user_id[:8]}"
+        )
+
+        # Determine auth method and user ID field based on provider
+        if provider_name == "auth0":
+            auth_method = AuthMethod.EMAIL
+            if "google-oauth2" in provider_user_id:
+                auth_method = AuthMethod.GOOGLE
+            elif "apple" in provider_user_id:
+                auth_method = AuthMethod.APPLE
+
+            # Check if user exists by Auth0 ID
+            result = await db.execute(select(User).where(User.auth0_user_id == provider_user_id))
+            user = result.scalar_one_or_none()
+
+            if user:
+                # Update existing user
+                user.email = email
+                user.auth_method = auth_method
+                if not user.username:
+                    user.username = username
+            else:
+                # Check if user exists by email
+                existing_user = await self.user_service.get_user_by_email(db, email)
+                if existing_user:
+                    # Link Auth0 account to existing user
+                    existing_user.auth0_user_id = provider_user_id
+                    existing_user.auth_method = auth_method
+                    user = existing_user
+                else:
+                    # Create new user
+                    user = User(
+                        email=email,
+                        username=username,
+                        auth0_user_id=provider_user_id,
+                        auth_method=auth_method,
+                        wallet_type=WalletType.NONE,
+                        feature_access_level=FeatureAccessLevel.FULL,
+                        email_verified=provider_userinfo.get("email_verified", False),
+                    )
+                    db.add(user)
+        elif provider_name == "privy":
+            auth_method = AuthMethod.WALLET
+
+            # Check if user exists by Privy ID
+            result = await db.execute(select(User).where(User.privy_user_id == provider_user_id))
+            user = result.scalar_one_or_none()
+
+            if user:
+                # Update existing user
+                if email and email != user.email:
+                    # Check if email is already taken by another user
+                    existing_email_user = await self.user_service.get_user_by_email(db, email)
+                    if existing_email_user and existing_email_user.id != user.id:
+                        # Email is taken, keep current email
+                        pass
+                    else:
+                        user.email = email
+                user.auth_method = auth_method
+            else:
+                # Check if user exists by email
+                existing_user = await self.user_service.get_user_by_email(db, email)
+                if existing_user:
+                    # Link Privy account to existing user
+                    existing_user.privy_user_id = provider_user_id
+                    existing_user.auth_method = auth_method
+                    user = existing_user
+                else:
+                    # Create new user
+                    user = User(
+                        email=email,
+                        username=username,
+                        privy_user_id=provider_user_id,
+                        auth_method=auth_method,
+                        wallet_type=WalletType.NONE,
+                        feature_access_level=FeatureAccessLevel.FULL,
+                        email_verified=False,
+                    )
+                    db.add(user)
+        else:
+            raise ValueError(f"Unsupported authentication provider: {provider_name}")
+
+        await db.commit()
+        await db.refresh(user)
+
+        return user
+
     async def refresh_access_token(
         self,
         db: AsyncSession,
@@ -261,7 +467,7 @@ class AuthenticationService:
         from app.core.security import decode_token
 
         # Decode refresh token
-        payload = decode_token(refresh_token)
+        payload = await decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token")
 

@@ -34,7 +34,7 @@ async def get_current_user(
     from app.models.user import User
 
     token = credentials.credentials
-    payload = decode_token(token)
+    payload = await decode_token(token)
 
     if payload is None:
         raise HTTPException(
@@ -50,32 +50,85 @@ async def get_current_user(
             detail="Invalid token type",
         )
 
-    # Get user ID from payload
+    # Try to detect provider and extract user ID using provider pattern
     user_id: int | None = None
-    auth0_user_id: str | None = None
+    provider_user_id: str | None = None
+    provider_name: str | None = None
 
-    # Check if it's an Auth0 token (has 'sub' with auth0 format) or custom token
-    sub = payload.get("sub")
-    if isinstance(sub, str) and "|" in sub:
-        # Auth0 user ID format: "auth0|..." or "google-oauth2|..."
-        auth0_user_id = sub
-    elif isinstance(sub, int | str):
-        # Custom token with user ID
+    # Try each registered auth provider to extract user ID
+    from app.services.providers.factory import ProviderFactory
+    from app.services.providers.registry import ProviderRegistry
+
+    for prov_name in ProviderRegistry.list_auth_providers():
         try:
-            user_id = int(sub)
-        except (ValueError, TypeError):
-            pass
+            provider = await ProviderFactory.get_auth_provider(prov_name)
+            extracted_id = provider.extract_user_id_from_token(payload)
+            if extracted_id:
+                provider_user_id = extracted_id
+                provider_name = prov_name
+                break
+        except Exception:
+            continue
 
-    if not user_id and not auth0_user_id:
+    # Fallback: Try to extract user ID manually for backward compatibility
+    if not provider_user_id:
+        sub = payload.get("sub")
+        if isinstance(sub, str) and "|" in sub:
+            # Auth0 user ID format: "auth0|..." or "google-oauth2|..."
+            provider_user_id = sub
+            provider_name = "auth0"
+        elif isinstance(sub, str):
+            # Check if it's a Privy user ID (UUID format)
+            import re
+
+            uuid_pattern = re.compile(
+                r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+            )
+            if uuid_pattern.match(sub):
+                provider_user_id = sub
+                provider_name = "privy"
+            else:
+                # Try as integer for custom token
+                try:
+                    user_id = int(sub)
+                except (ValueError, TypeError):
+                    pass
+        elif isinstance(sub, int):
+            user_id = sub
+
+        # Also check for user_id field
+        if not provider_user_id and not user_id:
+            user_id_from_payload = payload.get("user_id")
+            if isinstance(user_id_from_payload, str):
+                import re
+
+                uuid_pattern = re.compile(
+                    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+                )
+                if uuid_pattern.match(user_id_from_payload):
+                    provider_user_id = user_id_from_payload
+                    provider_name = "privy"
+                else:
+                    try:
+                        user_id = int(user_id_from_payload)
+                    except (ValueError, TypeError):
+                        pass
+            elif isinstance(user_id_from_payload, int):
+                user_id = user_id_from_payload
+
+    if not user_id and not provider_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
         )
 
-    # Fetch user from database
-    if auth0_user_id:
-        result = await db.execute(select(User).where(User.auth0_user_id == auth0_user_id))
+    # Fetch user from database based on provider
+    if provider_user_id and provider_name == "auth0":
+        result = await db.execute(select(User).where(User.auth0_user_id == provider_user_id))
+    elif provider_user_id and provider_name == "privy":
+        result = await db.execute(select(User).where(User.privy_user_id == provider_user_id))
     else:
+        # Custom token with integer user ID
         result = await db.execute(select(User).where(User.id == user_id))
 
     user = result.scalar_one_or_none()

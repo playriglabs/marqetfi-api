@@ -35,4 +35,16 @@ except ImportError:
     # Symbiosis provider not available
     pass
 
+try:
+    from app.services.providers.auth0 import Auth0AuthProvider  # noqa: F401
+except ImportError:
+    # Auth0 provider not available
+    pass
+
+try:
+    from app.services.providers.privy import PrivyAuthProvider  # noqa: F401
+except ImportError:
+    # Privy provider not available
+    pass
+
 __all__: list[str] = []

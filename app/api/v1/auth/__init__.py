@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    PrivyVerifyRequest,
+    RefreshTokenRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.services.auth_service import AuthenticationService
 
 router = APIRouter()
@@ -85,6 +91,42 @@ async def refresh_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Token refresh failed: {str(e)}",
+        ) from e
+
+
+@router.post("/privy/verify", response_model=TokenResponse)
+async def verify_privy_token(
+    request: PrivyVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Verify Privy access token and authenticate user.
+
+    Args:
+        request: Privy verification request with access token
+        db: Database session
+
+    Returns:
+        Token response with access and refresh tokens
+
+    Raises:
+        HTTPException: If token is invalid or authentication fails
+    """
+    try:
+        user, tokens = await auth_service.handle_provider_authentication(
+            db=db,
+            access_token=request.access_token,
+            provider_name="privy",
+        )
+        return TokenResponse(**tokens)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Privy authentication failed: {str(e)}",
         ) from e
 
 
