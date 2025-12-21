@@ -227,3 +227,55 @@ class BaseSwapProvider(BaseExternalService, ABC):
             - error: Error message (if failed)
         """
         pass
+
+
+class BaseAuthProvider(BaseExternalService, ABC):
+    """Abstract interface for authentication providers."""
+
+    @abstractmethod
+    async def verify_access_token(self, token: str) -> dict[str, Any] | None:
+        """Verify an access token.
+
+        Args:
+            token: Access token to verify
+
+        Returns:
+            Decoded token payload or None if invalid
+        """
+        pass
+
+    @abstractmethod
+    async def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
+        """Get user information by provider user ID.
+
+        Args:
+            user_id: Provider-specific user identifier
+
+        Returns:
+            User data dictionary or None if not found
+        """
+        pass
+
+    @abstractmethod
+    async def get_user_by_email(self, email: str) -> dict[str, Any] | None:
+        """Get user information by email.
+
+        Args:
+            email: User email address
+
+        Returns:
+            User data dictionary or None if not found
+        """
+        pass
+
+    @abstractmethod
+    def extract_user_id_from_token(self, token_payload: dict[str, Any]) -> str | None:
+        """Extract provider user ID from token payload.
+
+        Args:
+            token_payload: Decoded token payload
+
+        Returns:
+            Provider user ID or None if not found
+        """
+        pass

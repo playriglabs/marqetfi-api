@@ -1,6 +1,7 @@
 """Provider registry for managing provider implementations."""
 
 from app.services.providers.base import (
+    BaseAuthProvider,
     BasePriceProvider,
     BaseSettlementProvider,
     BaseSwapProvider,
@@ -15,6 +16,7 @@ class ProviderRegistry:
     _price_providers: dict[str, type[BasePriceProvider]] = {}
     _settlement_providers: dict[str, type[BaseSettlementProvider]] = {}
     _swap_providers: dict[str, type[BaseSwapProvider]] = {}
+    _auth_providers: dict[str, type[BaseAuthProvider]] = {}
 
     @classmethod
     def register_trading_provider(
@@ -79,3 +81,18 @@ class ProviderRegistry:
     def list_swap_providers(cls) -> list[str]:
         """List all registered swap provider names."""
         return list(cls._swap_providers.keys())
+
+    @classmethod
+    def register_auth_provider(cls, name: str, provider_class: type[BaseAuthProvider]) -> None:
+        """Register an authentication provider."""
+        cls._auth_providers[name] = provider_class
+
+    @classmethod
+    def get_auth_provider(cls, name: str) -> type[BaseAuthProvider] | None:
+        """Get an authentication provider class by name."""
+        return cls._auth_providers.get(name)
+
+    @classmethod
+    def list_auth_providers(cls) -> list[str]:
+        """List all registered authentication provider names."""
+        return list(cls._auth_providers.keys())

@@ -133,8 +133,29 @@ def verify_auth0_token(token: str) -> dict[str, Any] | None:
         return None
 
 
-def decode_token(token: str) -> dict[str, Any] | None:
-    """Decode and verify JWT token (supports both Auth0 and custom tokens).
+async def verify_privy_token(token: str) -> dict[str, Any] | None:
+    """Verify Privy access token.
+
+    Args:
+        token: Privy access token
+
+    Returns:
+        Decoded token payload or None if invalid
+    """
+    if not settings.PRIVY_APP_ID or not settings.PRIVY_APP_SECRET:
+        return None
+
+    try:
+        from app.services.providers.factory import ProviderFactory
+
+        privy_provider = await ProviderFactory.get_auth_provider("privy")
+        return await privy_provider.verify_access_token(token)
+    except Exception:
+        return None
+
+
+async def decode_token(token: str) -> dict[str, Any] | None:
+    """Decode and verify JWT token (supports Auth0, Privy, and custom tokens).
 
     Args:
         token: JWT token
@@ -142,19 +163,44 @@ def decode_token(token: str) -> dict[str, Any] | None:
     Returns:
         Decoded token payload or None if invalid
     """
-    # Try Auth0 token first (RS256)
+    # Try all registered auth providers
+    try:
+        from app.services.providers.factory import ProviderFactory
+        from app.services.providers.registry import ProviderRegistry
+
+        # Try each registered auth provider
+        for provider_name in ProviderRegistry.list_auth_providers():
+            try:
+                provider = await ProviderFactory.get_auth_provider(provider_name)
+                payload = await provider.verify_access_token(token)
+                if payload:
+                    return payload
+            except Exception:
+                # Continue to next provider
+                continue
+    except Exception:
+        # Fall back to direct verification
+        pass
+
+    # Try Auth0 token directly (for backward compatibility during transition)
     if settings.AUTH0_DOMAIN:
         auth0_payload = verify_auth0_token(token)
         if auth0_payload:
             return auth0_payload
 
+    # Try Privy token directly (for backward compatibility during transition)
+    if settings.PRIVY_APP_ID and settings.PRIVY_APP_SECRET:
+        privy_payload = await verify_privy_token(token)
+        if privy_payload:
+            return privy_payload
+
     # Try custom token (HS256)
     try:
-        payload: dict[str, Any] = jwt.decode(
+        custom_payload: dict[str, Any] = jwt.decode(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
-        return payload
+        return custom_payload
     except JWTError:
         return None

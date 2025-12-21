@@ -71,6 +71,12 @@ class WalletConnectRequest(BaseModel):
     create_mpc: bool = False  # True to create MPC wallet
 
 
+class PrivyVerifyRequest(BaseModel):
+    """Privy authentication verification request schema."""
+
+    access_token: str
+
+
 __all__ = [
     "AuthRequest",
     "LoginRequest",
@@ -79,6 +85,7 @@ __all__ = [
     "RefreshTokenRequest",
     "TokenResponse",
     "WalletConnectRequest",
+    "PrivyVerifyRequest",
     "OAuthAuthorizeResponse",
     "OAuthConnectionResponse",
     "OAuthLinkRequest",
