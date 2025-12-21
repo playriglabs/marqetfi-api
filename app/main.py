@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 
 from app.api.v1 import router as api_v1_router
 from app.config import get_settings
@@ -21,12 +22,29 @@ async def lifespan(app: FastAPI) -> Any:
     """Application lifespan manager."""
     # Startup
     setup_logging()
+
+    # Wait for database to be available before starting the application
+    logger.info("Waiting for database to be available...")
     await init_db()
-    await cache_manager.connect()
+
+    # Initialize cache (also with graceful handling if needed)
+    try:
+        await cache_manager.connect()
+    except Exception as e:
+        logger.warning(f"Cache connection failed: {e}. Application will continue without cache.")
+
     yield
+
     # Shutdown
-    await cache_manager.disconnect()
-    await close_db()
+    try:
+        await cache_manager.disconnect()
+    except Exception:
+        pass  # Ignore errors during shutdown
+
+    try:
+        await close_db()
+    except Exception:
+        pass  # Ignore errors during shutdown
 
 
 app = FastAPI(

@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshTokenRequest,
+    RegisterRequest,
+    TokenResponse,
+    TokenVerifyRequest,
+)
 from app.services.auth_service import AuthenticationService
 
 router = APIRouter()
@@ -85,6 +91,45 @@ async def refresh_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Token refresh failed: {str(e)}",
+        ) from e
+
+
+@router.post("/token/verify", response_model=TokenResponse)
+async def verify_token(
+    request: TokenVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Verify access token and authenticate user (provider-agnostic).
+
+    The provider is automatically detected from the token. If auto-detection fails,
+    you can optionally specify the provider in the request body.
+
+    Args:
+        request: Token verification request with access token and optional provider
+        db: Database session
+
+    Returns:
+        Token response with access and refresh tokens
+
+    Raises:
+        HTTPException: If token is invalid or authentication fails
+    """
+    try:
+        user, tokens = await auth_service.handle_provider_authentication(
+            db=db,
+            access_token=request.access_token,
+            provider_name=request.provider,  # None triggers auto-detection
+        )
+        return TokenResponse(**tokens)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Token verification failed: {str(e)}",
         ) from e
 
 

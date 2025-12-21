@@ -71,6 +71,17 @@ class WalletConnectRequest(BaseModel):
     create_mpc: bool = False  # True to create MPC wallet
 
 
+class TokenVerifyRequest(BaseModel):
+    """Token verification request schema for provider-agnostic authentication.
+
+    The provider will be auto-detected from the token. If auto-detection fails,
+    you can optionally specify the provider explicitly.
+    """
+
+    access_token: str
+    provider: str | None = None  # Optional: privy, auth0, etc. (auto-detected if not provided)
+
+
 __all__ = [
     "AuthRequest",
     "LoginRequest",
@@ -78,6 +89,7 @@ __all__ = [
     "RegisterRequest",
     "RefreshTokenRequest",
     "TokenResponse",
+    "TokenVerifyRequest",
     "WalletConnectRequest",
     "OAuthAuthorizeResponse",
     "OAuthConnectionResponse",
