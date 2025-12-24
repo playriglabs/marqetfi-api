@@ -1,10 +1,13 @@
 """Risk monitoring background tasks."""
 
+import asyncio
+from typing import Any
+
 from app.tasks.celery_app import celery_app
 
 
 @celery_app.task(name="monitor_position_risk")
-def monitor_position_risk_task() -> dict[str, str]:
+def monitor_position_risk_task() -> dict[str, Any]:
     """Monitor all open positions for risk threshold breaches.
 
     This task runs periodically to check positions for:
@@ -15,13 +18,12 @@ def monitor_position_risk_task() -> dict[str, str]:
     Returns:
         Task result dictionary
     """
-    import asyncio
 
     from app.core.database import get_session_maker
     from app.repositories.position_repository import PositionRepository
     from app.services.risk_management_service import RiskManagementService
 
-    async def _monitor() -> dict[str, str]:
+    async def _monitor() -> dict[str, Any]:
         """Async monitoring logic."""
         AsyncSessionLocal = get_session_maker()
         async with AsyncSessionLocal() as db:

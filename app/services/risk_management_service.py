@@ -234,7 +234,6 @@ class RiskManagementService:
             List of generated risk events
         """
         events: list[RiskEvent] = []
-        risk_limit = await self.get_risk_limit(position.user_id, position.asset)
 
         # Check margin ratio
         if position.margin_ratio < Decimal("0.1"):  # 10% margin ratio threshold
@@ -253,7 +252,11 @@ class RiskManagementService:
         # Check liquidation risk
         if position.liquidation_price:
             # Calculate distance to liquidation (simplified)
-            if position.side.value == "long":
+            # Handle both enum and string values
+            side_value = (
+                position.side.value if hasattr(position.side, "value") else str(position.side)
+            )
+            if side_value == "long":
                 distance = (
                     (position.current_price - position.liquidation_price)
                     / position.current_price
