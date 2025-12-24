@@ -73,7 +73,7 @@ class TokenSwap(Base):
     from_chain: Mapped[str] = mapped_column(String(50), nullable=False)  # Source chain
     to_chain: Mapped[str] = mapped_column(String(50), nullable=False)  # Destination chain
     amount: Mapped[Decimal] = mapped_column(Numeric(36, 18), nullable=False)  # Amount being swapped
-    swap_provider: Mapped[str] = mapped_column(String(50), nullable=False)  # lifi, symbiosis
+    swap_provider: Mapped[str] = mapped_column(String(50), nullable=False)  # lifi
     swap_status: Mapped[str] = mapped_column(
         String(20), nullable=False, index=True
     )  # pending, processing, completed, failed

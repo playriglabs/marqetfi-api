@@ -7,7 +7,7 @@ from app.config.providers.lighter import LighterConfig
 from app.config.providers.ostium import OstiumConfig
 
 # Import providers to trigger auto-registration
-from app.services.providers import auth0, lifi, lighter, ostium, privy, symbiosis  # noqa: F401
+from app.services.providers import auth0, lifi, lighter, ostium, privy  # noqa: F401
 from app.services.providers.auth0.config import Auth0AuthConfig
 from app.services.providers.base import (
     BaseAuthProvider,

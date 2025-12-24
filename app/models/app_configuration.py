@@ -65,7 +65,7 @@ class ProviderConfiguration(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     provider_name: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True
-    )  # ostium, lighter, lifi, symbiosis, privy, dynamic
+    )  # ostium, lighter, lifi, privy, dynamic
     provider_type: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True
     )  # trading, price, settlement, swap, wallet

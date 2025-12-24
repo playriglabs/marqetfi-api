@@ -120,7 +120,10 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "json"
+    LOG_FORMAT: str = Field(
+        default="pretty",
+        description="Log format: 'pretty' for colored human-readable (dev), 'json' for structured logs (prod)",
+    )
 
     # API
     API_V1_PREFIX: str = "/api/v1"
@@ -168,7 +171,7 @@ class Settings(BaseSettings):
 
     # Swap Provider Settings
     SWAP_PROVIDER: str = Field(
-        default="lifi", description="Default swap provider (lifi, symbiosis)"
+        default="lifi", description="Default swap provider (lifi)"
     )
     LIFI_API_URL: str = Field(default="https://li.xyz/v1", description="LI-FI API base URL")
     LIFI_API_KEY: str | None = Field(default=None, description="LI-FI API key (if required)")
@@ -176,10 +179,6 @@ class Settings(BaseSettings):
     lifi_timeout: int = Field(default=30, description="LI-FI request timeout in seconds")
     lifi_retry_attempts: int = Field(default=3, description="LI-FI retry attempts")
     lifi_retry_delay: float = Field(default=1.0, description="LI-FI retry delay in seconds")
-    SYMBIOSIS_API_URL: str = Field(
-        default="https://api.symbiosis.finance",
-        description="Symbiosis API base URL (future)",
-    )
 
     class Config:
         """Pydantic config."""

@@ -30,12 +30,6 @@ except ImportError:
     pass
 
 try:
-    from app.services.providers.symbiosis import SymbiosisSwapProvider  # noqa: F401
-except ImportError:
-    # Symbiosis provider not available
-    pass
-
-try:
     from app.services.providers.auth0 import Auth0AuthProvider  # noqa: F401
 except ImportError:
     # Auth0 provider not available
