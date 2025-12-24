@@ -1,8 +1,12 @@
 """Trading endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from decimal import Decimal
 
-from app.api.dependencies import get_trading_service
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.dependencies import get_current_active_user, get_db, get_trading_service
+from app.models.user import User
 from app.schemas.trading import PairResponse, TradeCreate, TradeResponse
 from app.services.trading_service import TradingService
 
@@ -12,10 +16,19 @@ router = APIRouter()
 @router.post("/trades", response_model=TradeResponse, status_code=status.HTTP_201_CREATED)
 async def open_trade(
     trade: TradeCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
     trading_service: TradingService = Depends(get_trading_service),
 ) -> TradeResponse:
     """Open a new trade."""
     try:
+        # Update trading service with db for risk checks
+        trading_service.db = db
+
+        # Calculate available balance (simplified: use collateral as minimum available)
+        # In production, this would query user's actual balance from deposits/wallet
+        available_balance = Decimal(str(trade.collateral))
+
         result = await trading_service.open_trade(
             collateral=trade.collateral,
             leverage=trade.leverage,
@@ -26,6 +39,8 @@ async def open_trade(
             tp=trade.tp,
             sl=trade.sl,
             asset=trade.asset,
+            user_id=current_user.id,
+            available_balance=available_balance,
         )
         return TradeResponse(
             transaction_hash=result["transaction_hash"],

@@ -1,21 +1,34 @@
 """Trading service for order management."""
 
-from typing import Any
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any
 
 from app.services.providers.base import BaseTradingProvider
 from app.services.providers.router import get_provider_router
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TradingService:
     """Service for trading operations."""
 
-    def __init__(self, trading_provider: BaseTradingProvider | None = None):
+    def __init__(
+        self,
+        trading_provider: BaseTradingProvider | None = None,
+        db: "AsyncSession | None" = None,
+    ):
         """Initialize trading service.
 
         If trading_provider is None, uses ProviderRouter for multi-provider support.
+
+        Args:
+            trading_provider: Optional trading provider instance
+            db: Optional database session for risk checks
         """
         self.trading_provider = trading_provider
         self.router = get_provider_router() if trading_provider is None else None
+        self.db = db
 
     async def open_trade(
         self,
@@ -28,6 +41,8 @@ class TradingService:
         tp: float | None = None,
         sl: float | None = None,
         asset: str | None = None,
+        user_id: int | None = None,
+        available_balance: Decimal | None = None,
     ) -> dict[str, Any]:
         """Open a new trade."""
         # Business logic validation
@@ -37,6 +52,30 @@ class TradingService:
             raise ValueError("Leverage must be at least 1")
         if order_type not in ["MARKET", "LIMIT", "STOP"]:
             raise ValueError("Order type must be MARKET, LIMIT, or STOP")
+
+        # Risk validation (if db and user_id provided)
+        if self.db and user_id is not None:
+            from app.services.risk_management_service import RiskManagementService
+
+            risk_service = RiskManagementService(self.db)
+            position_size = Decimal(str(collateral)) * Decimal(leverage)
+
+            # Use provided balance or default to collateral (simplified)
+            balance = (
+                available_balance if available_balance is not None else Decimal(str(collateral))
+            )
+
+            is_valid, error = await risk_service.validate_pre_trade(
+                user_id=user_id,
+                collateral=Decimal(str(collateral)),
+                leverage=leverage,
+                position_size=position_size,
+                available_balance=balance,
+                asset=asset,
+            )
+
+            if not is_valid:
+                raise ValueError(error)
 
         # Get provider based on asset type or asset symbol
         if self.router:
