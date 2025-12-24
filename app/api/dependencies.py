@@ -126,10 +126,17 @@ async def get_current_user(
     if provider_user_id and provider_name == "auth0":
         result = await db.execute(select(User).where(User.auth0_user_id == provider_user_id))
     elif provider_user_id and provider_name == "privy":
+        # Privy user IDs are UUIDs
         result = await db.execute(select(User).where(User.privy_user_id == provider_user_id))
-    else:
+    elif user_id:
         # Custom token with integer user ID
         result = await db.execute(select(User).where(User.id == user_id))
+    else:
+        # Fallback: try to find by provider_user_id as string
+        if provider_user_id:
+            result = await db.execute(select(User).where(User.privy_user_id == provider_user_id))
+        else:
+            result = await db.execute(select(User).where(User.id == 0))  # Will return None
 
     user = result.scalar_one_or_none()
 
@@ -212,10 +219,19 @@ async def get_settlement_provider() -> BaseSettlementProvider:
     return await ProviderFactory.get_settlement_provider()
 
 
-async def get_trading_service() -> TradingService:
-    """Get trading service instance with multi-provider routing."""
+async def get_trading_service(
+    db: AsyncSession | None = Depends(get_db),
+) -> TradingService:
+    """Get trading service instance with multi-provider routing.
+
+    Args:
+        db: Optional database session for risk checks
+
+    Returns:
+        TradingService instance
+    """
     # Pass None to enable multi-provider routing via ProviderRouter
-    return TradingService(trading_provider=None)
+    return TradingService(trading_provider=None, db=db)
 
 
 async def get_settlement_service() -> SettlementService:
