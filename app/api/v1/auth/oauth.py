@@ -28,7 +28,7 @@ async def authorize_oauth(
         Authorization URL and state token
     """
     try:
-        auth_url, state = oauth_service.get_oauth_authorization_url(
+        auth_url, state = await oauth_service.get_oauth_authorization_url(
             provider=provider,
             redirect_uri=redirect_uri,
         )
@@ -52,7 +52,7 @@ async def oauth_callback(
     redirect_uri: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    """Handle OAuth callback.
+    """Handle OAuth callback (generic endpoint).
 
     Args:
         code: Authorization code
@@ -84,6 +84,92 @@ async def oauth_callback(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OAuth callback failed: {str(e)}",
+        ) from e
+
+
+@router.get("/google/callback")
+async def google_oauth_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    redirect_uri: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Handle Google OAuth callback.
+
+    Args:
+        code: Authorization code
+        state: State parameter
+        redirect_uri: Redirect URI
+        db: Database session
+
+    Returns:
+        Token response
+    """
+    try:
+        user, tokens = await oauth_service.handle_oauth_callback(
+            db=db,
+            code=code,
+            state=state,
+            redirect_uri=redirect_uri,
+            provider="google",
+        )
+        return {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+            "token_type": tokens["token_type"],
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google OAuth callback failed: {str(e)}",
+        ) from e
+
+
+@router.get("/apple/callback")
+async def apple_oauth_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    redirect_uri: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Handle Apple OAuth callback.
+
+    Args:
+        code: Authorization code
+        state: State parameter
+        redirect_uri: Redirect URI
+        db: Database session
+
+    Returns:
+        Token response
+    """
+    try:
+        user, tokens = await oauth_service.handle_oauth_callback(
+            db=db,
+            code=code,
+            state=state,
+            redirect_uri=redirect_uri,
+            provider="apple",
+        )
+        return {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+            "token_type": tokens["token_type"],
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Apple OAuth callback failed: {str(e)}",
         ) from e
 
 
