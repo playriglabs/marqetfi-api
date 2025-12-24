@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
-    PrivyVerifyRequest,
+    ProviderAuthRequest,
     RefreshTokenRequest,
     RegisterRequest,
     TokenResponse,
@@ -94,15 +94,21 @@ async def refresh_token(
         ) from e
 
 
-@router.post("/privy/verify", response_model=TokenResponse)
-async def verify_privy_token(
-    request: PrivyVerifyRequest,
+@router.post("/provider/login", response_model=TokenResponse)
+async def provider_login(
+    request: ProviderAuthRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Verify Privy access token and authenticate user.
+    """Login with provider access token (generic endpoint for any auth provider).
+
+    This endpoint uses the provider pattern to authenticate with any configured
+    authentication provider (Privy, Auth0, etc.). The provider is either:
+    1. Specified in the request (provider field)
+    2. Auto-detected from the token
+    3. Uses the default/activated provider from configuration
 
     Args:
-        request: Privy verification request with access token
+        request: Provider authentication request with access token
         db: Database session
 
     Returns:
@@ -115,7 +121,7 @@ async def verify_privy_token(
         user, tokens = await auth_service.handle_provider_authentication(
             db=db,
             access_token=request.access_token,
-            provider_name="privy",
+            provider_name=request.provider,  # None = auto-detect
         )
         return TokenResponse(**tokens)
     except ValueError as e:
@@ -126,7 +132,7 @@ async def verify_privy_token(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Privy authentication failed: {str(e)}",
+            detail=f"Provider authentication failed: {str(e)}",
         ) from e
 
 

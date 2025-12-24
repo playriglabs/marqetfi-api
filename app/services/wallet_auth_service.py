@@ -182,23 +182,129 @@ class WalletAuthService:
         db: AsyncSession,
         user: User,
         provider: str = "privy",
+        network: str = "mainnet",
     ) -> dict[str, Any]:
-        """Create MPC wallet for user.
+        """Create MPC wallet for user via Privy.
+
+        According to Privy docs: https://docs.privy.io/basics/python/quickstart
+        Wallets are created server-side using the Privy SDK with app credentials.
 
         Args:
             db: Database session
             user: User instance
-            provider: Wallet provider (privy, dynamic)
+            provider: Wallet provider (privy, dynamic) - defaults to privy
+            network: Network name (testnet/mainnet) - defaults to mainnet
 
         Returns:
-            Wallet creation response
+            Wallet creation response with wallet_id, address, and database ID
 
         Raises:
-            NotImplementedError: If MPC wallet creation is not implemented
+            ValueError: If provider is not supported or wallet creation fails
         """
-        # TODO: Implement MPC wallet creation via provider
-        # This will be implemented when Privy/Dynamic integration is added
-        raise NotImplementedError("MPC wallet creation not yet implemented")
+        from app.models.wallet import Wallet
+        from app.repositories.wallet_repository import WalletRepository
+        from app.services.wallet_providers.factory import WalletProviderFactory
+
+        # Validate provider
+        if provider not in ["privy", "dynamic"]:
+            raise ValueError(f"Unsupported provider: {provider}. Supported: privy, dynamic")
+
+        try:
+            # Get wallet provider
+            wallet_provider = await WalletProviderFactory.get_provider(provider)
+            await wallet_provider.initialize()
+
+            # Create wallet via Privy SDK
+            # According to Privy docs: https://docs.privy.io/basics/python/quickstart
+            # Wallets are created server-side using client.wallets.create(chain_type="ethereum")
+            # No owner parameter needed - uses app credentials for server-side wallets
+            wallet_data = await wallet_provider.create_wallet(network)
+
+            # Extract wallet information
+            provider_wallet_id = wallet_data.get("wallet_id") or wallet_data.get("id")
+            wallet_address = wallet_data.get("address") or wallet_data.get("wallet_address")
+
+            if not provider_wallet_id or not wallet_address:
+                raise ValueError("Invalid wallet data from provider: missing wallet_id or address")
+
+            # Normalize wallet address
+            wallet_address = w3.to_checksum_address(wallet_address)
+
+            # Check if wallet already exists in database
+            wallet_repo = WalletRepository()
+            result = await db.execute(
+                select(Wallet).where(
+                    Wallet.provider_type == provider,
+                    Wallet.provider_wallet_id == str(provider_wallet_id),
+                )
+            )
+            existing_wallet = result.scalar_one_or_none()
+
+            if existing_wallet:
+                # Wallet already exists, check if it belongs to this user
+                if existing_wallet.user_id != user.id:
+                    raise ValueError("Wallet already exists and belongs to another user")
+                wallet = existing_wallet
+            else:
+                # Check if user has any primary wallet
+                result = await db.execute(
+                    select(Wallet).where(
+                        Wallet.user_id == user.id,
+                        Wallet.is_primary == True,  # noqa: E712
+                    )
+                )
+                has_primary = result.scalar_one_or_none() is not None
+
+                # Create new wallet record in database
+                wallet = await wallet_repo.create(
+                    db,
+                    {
+                        "user_id": user.id,
+                        "provider_type": provider,
+                        "provider_wallet_id": str(provider_wallet_id),
+                        "wallet_address": wallet_address,
+                        "network": network,
+                        "is_active": True,
+                        "is_primary": not has_primary,  # First wallet is primary
+                        "wallet_metadata": wallet_data.get("metadata", {}),
+                    },
+                )
+
+            # Link wallet to user account via WalletConnection
+            wallet_connection = await self.link_wallet_to_user(
+                db=db,
+                user=user,
+                wallet_address=wallet_address,
+                wallet_type=WalletType.MPC,
+                provider=provider,
+                provider_wallet_id=str(provider_wallet_id),
+            )
+
+            # Update user's MPC wallet reference
+            if not user.mpc_wallet_id:
+                user.mpc_wallet_id = wallet.id
+
+            # Update user's wallet type and address if this is primary
+            if wallet.is_primary:
+                user.wallet_type = WalletType.MPC
+                user.wallet_address = wallet_address
+
+            await db.commit()
+            await db.refresh(wallet)
+            await db.refresh(wallet_connection)
+
+            return {
+                "wallet_id": wallet.id,
+                "provider_wallet_id": provider_wallet_id,
+                "address": wallet_address,
+                "network": network,
+                "provider": provider,
+                "wallet_connection_id": wallet_connection.id,
+                "is_primary": wallet.is_primary,
+            }
+        except Exception as e:
+            await db.rollback()
+            raise ValueError(f"Failed to create MPC wallet: {str(e)}") from e
 
     async def link_wallet_to_user(
         self,

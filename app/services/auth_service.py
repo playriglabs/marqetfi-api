@@ -305,13 +305,16 @@ class AuthenticationService:
     async def _detect_provider_from_token(self, token: str) -> str | None:
         """Detect authentication provider from token.
 
+        This method tries to verify the token with each registered provider
+        to determine which provider issued the token.
+
         Args:
             token: Access token
 
         Returns:
             Provider name or None if cannot detect
         """
-        # Try each registered provider
+        # Try all registered providers to find which one can verify the token
         for provider_name in ProviderRegistry.list_auth_providers():
             try:
                 provider = await ProviderFactory.get_auth_provider(provider_name)
@@ -402,7 +405,49 @@ class AuthenticationService:
                     )
                     db.add(user)
         elif provider_name == "privy":
-            auth_method = AuthMethod.WALLET
+            # Privy supports multiple auth methods (email, wallet, OAuth)
+            # Determine auth method from linked_accounts
+            linked_accounts = provider_userinfo.get("linked_accounts", [])
+            auth_method = AuthMethod.WALLET  # Default to wallet
+            
+            # Check linked accounts to determine auth method
+            has_email = False
+            has_wallet = False
+            for account in linked_accounts:
+                account_dict = account if isinstance(account, dict) else (
+                    account.to_dict() if hasattr(account, "to_dict") else {}
+                )
+                account_type = account_dict.get("type") or account_dict.get("account_type", "")
+                if account_type == "email":
+                    has_email = True
+                elif account_type in ["wallet", "ethereum", "solana"]:
+                    has_wallet = True
+            
+            # Set auth method based on linked accounts
+            if has_email and not has_wallet:
+                auth_method = AuthMethod.EMAIL
+            elif has_wallet:
+                auth_method = AuthMethod.WALLET
+            # If both, prefer wallet for now
+
+            # Extract email from provider_userinfo
+            email = provider_userinfo.get("email")
+            if not email and linked_accounts:
+                # Extract email from linked_accounts
+                for account in linked_accounts:
+                    account_dict = account if isinstance(account, dict) else (
+                        account.to_dict() if hasattr(account, "to_dict") else {}
+                    )
+                    account_type = account_dict.get("type") or account_dict.get("account_type", "")
+                    if account_type == "email":
+                        email = account_dict.get("address") or account_dict.get("email")
+                        break
+
+            # Generate username from email if not provided
+            if not username and email:
+                username = email.split("@")[0] if "@" in email else f"user_{provider_user_id[:8]}"
+            elif not username:
+                username = f"privy_user_{provider_user_id[:8]}"
 
             # Check if user exists by Privy ID
             result = await db.execute(select(User).where(User.privy_user_id == provider_user_id))
@@ -419,9 +464,16 @@ class AuthenticationService:
                     else:
                         user.email = email
                 user.auth_method = auth_method
+                # Update email_verified if available
+                email_verified = provider_userinfo.get("email_verified", False)
+                if email_verified:
+                    user.email_verified = True
             else:
                 # Check if user exists by email
-                existing_user = await self.user_service.get_user_by_email(db, email)
+                existing_user = None
+                if email:
+                    existing_user = await self.user_service.get_user_by_email(db, email)
+                
                 if existing_user:
                     # Link Privy account to existing user
                     existing_user.privy_user_id = provider_user_id
@@ -429,14 +481,15 @@ class AuthenticationService:
                     user = existing_user
                 else:
                     # Create new user
+                    email_verified = provider_userinfo.get("email_verified", False)
                     user = User(
-                        email=email,
+                        email=email or f"privy_{provider_user_id}@privy.local",  # Fallback email
                         username=username,
                         privy_user_id=provider_user_id,
                         auth_method=auth_method,
                         wallet_type=WalletType.NONE,
                         feature_access_level=FeatureAccessLevel.FULL,
-                        email_verified=False,
+                        email_verified=email_verified,
                     )
                     db.add(user)
         else:

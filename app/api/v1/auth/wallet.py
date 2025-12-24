@@ -110,8 +110,12 @@ async def create_mpc_wallet(
         result = await wallet_auth_service.create_mpc_wallet(
             db=db,
             user=current_user,
-            provider=request.provider,
+            provider=request.provider or "privy",
+            network=request.network if hasattr(request, "network") else "mainnet",
         )
+        # Ensure wallet_address is set for backward compatibility
+        if "wallet_address" not in result:
+            result["wallet_address"] = result.get("address")
         return CreateMPCWalletResponse(**result)
     except NotImplementedError as e:
         raise HTTPException(
