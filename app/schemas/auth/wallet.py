@@ -54,9 +54,13 @@ class CreateMPCWalletResponse(BaseModel):
     """Create MPC wallet response schema."""
 
     wallet_id: int
-    wallet_address: str
+    address: str  # Alias for wallet_address
+    wallet_address: str | None = None  # For backward compatibility
     provider: str
     provider_wallet_id: str
+    network: str
+    wallet_connection_id: int
+    is_primary: bool
 
 
 class WalletConnectionResponse(BaseModel):

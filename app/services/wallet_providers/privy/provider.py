@@ -209,3 +209,25 @@ class PrivyWalletProvider(BaseWalletProvider):
                 f"Failed to get wallet info: {str(error)}",
                 service_name=self.service_name,
             ) from error
+
+    async def send_transaction(self, wallet_id: str, transaction: dict[str, Any]) -> dict[str, Any]:
+        """Send a signed transaction via Privy API.
+
+        Args:
+            wallet_id: Privy wallet ID
+            transaction: Transaction dictionary
+
+        Returns:
+            Transaction receipt with transaction_hash
+        """
+        try:
+            await self.initialize()
+            return await self.client.send_transaction(wallet_id, transaction)
+        except PrivyError:
+            raise
+        except Exception as e:
+            error = self.handle_service_error(e, "send_transaction")
+            raise WalletSigningError(
+                f"Failed to send transaction: {str(error)}",
+                service_name=self.service_name,
+            ) from error

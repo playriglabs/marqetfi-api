@@ -432,3 +432,61 @@ class PrivyClient:
         except Exception as e:
             self._handle_error(e)
             raise  # Never reached, but satisfies type checker
+
+    async def send_transaction(self, wallet_id: str, transaction: dict[str, Any]) -> dict[str, Any]:
+        """Send a signed transaction via Privy API.
+
+        According to Privy docs: https://docs.privy.io/basics/python/quickstart
+        Uses client.wallets.rpc() with method "eth_sendTransaction"
+
+        Args:
+            wallet_id: Privy wallet ID
+            transaction: Transaction data with fields like:
+                - to: Recipient address
+                - value: Amount in wei
+                - data: Transaction data (optional)
+                - gas: Gas limit (optional, will be populated)
+                - gasPrice: Gas price (optional, will be populated)
+                - nonce: Transaction nonce (optional, will be populated)
+
+        Returns:
+            Transaction receipt with transaction_hash
+        """
+        try:
+            client = await self._get_client()
+
+            # Extract chain_id from transaction or use default (1 for mainnet)
+            chain_id = transaction.get("chainId", 1)
+            caip2 = f"eip155:{chain_id}"
+
+            # Use Privy's RPC method for sending transactions
+            result = await client.wallets.rpc(
+                wallet_id=wallet_id,
+                method="eth_sendTransaction",
+                caip2=caip2,
+                params={
+                    "transaction": transaction,
+                },
+            )
+
+            # Extract transaction hash from response
+            if hasattr(result, "to_dict"):
+                data = result.to_dict()
+                transaction_hash = data.get("transaction_hash") or data.get("hash")
+            elif isinstance(result, dict):
+                transaction_hash = result.get("transaction_hash") or result.get("hash")
+            elif hasattr(result, "transaction_hash"):
+                transaction_hash = result.transaction_hash
+            elif hasattr(result, "hash"):
+                transaction_hash = result.hash
+            else:
+                transaction_hash = str(result)
+
+            return {
+                "transaction_hash": transaction_hash,
+                "status": "sent",
+                "wallet_id": wallet_id,
+            }
+        except Exception as e:
+            self._handle_error(e)
+            raise  # Never reached, but satisfies type checker
