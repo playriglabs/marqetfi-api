@@ -409,7 +409,7 @@ class AuthenticationService:
             # Determine auth method from linked_accounts
             linked_accounts = provider_userinfo.get("linked_accounts", [])
             auth_method = AuthMethod.WALLET  # Default to wallet
-
+            
             # Check linked accounts to determine auth method
             has_email = False
             has_wallet = False

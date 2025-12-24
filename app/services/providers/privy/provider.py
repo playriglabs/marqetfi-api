@@ -208,7 +208,7 @@ class PrivyAuthProvider(BaseAuthProvider):
                 elif "sub" not in token_dict and "user_id" in token_dict:
                     token_dict["sub"] = token_dict["user_id"]
 
-            return token_dict
+            return cast(dict[str, Any], token_dict) if token_dict else None
         except (AuthenticationError, APIStatusError):
             # Token is invalid
             return None
