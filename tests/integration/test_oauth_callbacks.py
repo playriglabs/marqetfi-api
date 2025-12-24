@@ -1,6 +1,6 @@
 """Integration tests for OAuth callback endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -104,7 +104,9 @@ async def test_oauth_callback_apple_success(client: TestClient):
 async def test_oauth_callback_invalid_state(client: TestClient):
     """Test OAuth callback with invalid state."""
     with patch("app.services.oauth_service.OAuthService.handle_oauth_callback") as mock_callback:
-        mock_callback.side_effect = ValueError("OAuth state validation failed: Invalid or expired OAuth state")
+        mock_callback.side_effect = ValueError(
+            "OAuth state validation failed: Invalid or expired OAuth state"
+        )
 
         response = client.get(
             "/api/v1/auth/oauth/google/callback?code=auth_code_123&state=invalid_state"
@@ -164,11 +166,8 @@ async def test_oauth_callback_generic_endpoint(client: TestClient):
     with patch("app.services.oauth_service.OAuthService.handle_oauth_callback") as mock_callback:
         mock_callback.return_value = (mock_user, tokens)
 
-        response = client.get(
-            "/api/v1/auth/oauth/callback?code=auth_code_123&state=valid_state"
-        )
+        response = client.get("/api/v1/auth/oauth/callback?code=auth_code_123&state=valid_state")
 
         assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
-

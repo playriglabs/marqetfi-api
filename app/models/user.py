@@ -69,7 +69,10 @@ class User(Base):
         "WalletConnection", back_populates="user", cascade="all, delete-orphan"
     )
     wallets: Mapped[list["Wallet"]] = relationship(
-        "Wallet", back_populates="user", cascade="all, delete-orphan"
+        "Wallet",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="[Wallet.user_id]",
     )
     orders: Mapped[list["Order"]] = relationship(
         "Order", back_populates="user", cascade="all, delete-orphan"

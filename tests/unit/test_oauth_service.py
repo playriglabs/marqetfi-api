@@ -1,6 +1,5 @@
 """Test OAuth service."""
 
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.auth import OAuthConnection
 from app.models.enums import AuthMethod
 from app.models.user import User
-from app.services.oauth_service import OAuthService, OAUTH_STATE_EXPIRATION
+from app.services.oauth_service import OAUTH_STATE_EXPIRATION, OAuthService
 
 
 class TestOAuthService:
@@ -173,9 +172,7 @@ class TestOAuthService:
             mock_cache.get = AsyncMock(return_value=state_data)
             mock_cache.delete = AsyncMock(return_value=True)
 
-            with patch.object(
-                service.auth0_service, "exchange_code_for_tokens"
-            ) as mock_exchange:
+            with patch.object(service.auth0_service, "exchange_code_for_tokens") as mock_exchange:
                 mock_exchange.return_value = token_response
 
                 with patch.object(service.auth0_service, "get_userinfo") as mock_userinfo:
@@ -210,8 +207,12 @@ class TestOAuthService:
 
                                 assert user == mock_user
                                 assert "access_token" in tokens
-                                mock_exchange.assert_called_once_with(code, redirect_uri)
-                                mock_userinfo.assert_called_once_with(token_response["access_token"])
+                                mock_exchange.assert_called_once_with(
+                                    code=code, redirect_uri=redirect_uri
+                                )
+                                mock_userinfo.assert_called_once_with(
+                                    token_response["access_token"]
+                                )
                                 mock_create_user.assert_called_once()
                                 mock_store_conn.assert_called_once()
                                 mock_gen_tokens.assert_called_once()
@@ -226,9 +227,7 @@ class TestOAuthService:
             mock_cache.get = AsyncMock(return_value=None)
 
             with pytest.raises(ValueError, match="OAuth state validation failed"):
-                await service.handle_oauth_callback(
-                    db=mock_db, code=code, state=state
-                )
+                await service.handle_oauth_callback(db=mock_db, code=code, state=state)
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_provider_mismatch(self, service, mock_db):
@@ -267,9 +266,7 @@ class TestOAuthService:
             mock_cache.get = AsyncMock(return_value=state_data)
             mock_cache.delete = AsyncMock(return_value=True)
 
-            with patch.object(
-                service.auth0_service, "exchange_code_for_tokens"
-            ) as mock_exchange:
+            with patch.object(service.auth0_service, "exchange_code_for_tokens") as mock_exchange:
                 mock_exchange.side_effect = Exception("Token exchange failed")
 
                 with pytest.raises(ValueError, match="OAuth token exchange failed"):
@@ -298,9 +295,7 @@ class TestOAuthService:
             mock_cache.get = AsyncMock(return_value=state_data)
             mock_cache.delete = AsyncMock(return_value=True)
 
-            with patch.object(
-                service.auth0_service, "exchange_code_for_tokens"
-            ) as mock_exchange:
+            with patch.object(service.auth0_service, "exchange_code_for_tokens") as mock_exchange:
                 mock_exchange.return_value = token_response
 
                 with patch.object(service.auth0_service, "get_userinfo") as mock_userinfo:
@@ -336,9 +331,7 @@ class TestOAuthService:
             mock_cache.get = AsyncMock(return_value=state_data)
             mock_cache.delete = AsyncMock(return_value=True)
 
-            with patch.object(
-                service.auth0_service, "exchange_code_for_tokens"
-            ) as mock_exchange:
+            with patch.object(service.auth0_service, "exchange_code_for_tokens") as mock_exchange:
                 mock_exchange.return_value = token_response
 
                 with patch.object(service.auth0_service, "get_userinfo") as mock_userinfo:
@@ -379,8 +372,8 @@ class TestOAuthService:
         code = "auth_code_123"
         state = "valid_state_123"
 
+        # Don't include provider in state_data to force provider detection from userinfo
         state_data = {
-            "provider": "google",
             "redirect_uri": "http://localhost:8000/callback",
         }
 
@@ -398,16 +391,11 @@ class TestOAuthService:
             mock_cache.get = AsyncMock(return_value=state_data)
             mock_cache.delete = AsyncMock(return_value=True)
 
-            with patch.object(
-                service.auth0_service, "exchange_code_for_tokens"
-            ) as mock_exchange:
+            with patch.object(service.auth0_service, "exchange_code_for_tokens") as mock_exchange:
                 mock_exchange.return_value = token_response
 
                 with patch.object(service.auth0_service, "get_userinfo") as mock_userinfo:
                     mock_userinfo.return_value = userinfo
 
                     with pytest.raises(ValueError, match="Unable to determine OAuth provider"):
-                        await service.handle_oauth_callback(
-                            db=mock_db, code=code, state=state
-                        )
-
+                        await service.handle_oauth_callback(db=mock_db, code=code, state=state)

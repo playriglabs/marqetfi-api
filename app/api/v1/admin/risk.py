@@ -121,7 +121,9 @@ async def update_risk_limit(
             detail=f"Risk limit not found: {limit_id}",
         )
 
-    update_data = {}
+    from typing import Any
+
+    update_data: dict[str, Any] = {}
     if risk_limit.max_leverage is not None:
         update_data["max_leverage"] = risk_limit.max_leverage
     if risk_limit.max_position_size is not None:

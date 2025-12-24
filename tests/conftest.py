@@ -1,18 +1,39 @@
 """Pytest configuration and fixtures."""
 
-import asyncio
-from collections.abc import AsyncGenerator, Generator
-from typing import Any
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.core.database import Base, get_db
-from app.main import app
+# Set test database URL BEFORE any imports that might use it
+import os  # noqa: E402
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
+import asyncio  # noqa: E402
+from collections.abc import AsyncGenerator, Generator  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+from typing import Any  # noqa: E402
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+
+from app.core.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
+
+
+# Override lifespan to skip database initialization in tests
+@asynccontextmanager
+async def test_lifespan(app):
+    """Test lifespan that skips database initialization."""
+    from app.core.cache import cache_manager
+
+    # Skip database init, just connect cache
+    await cache_manager.connect()
+    yield
+    await cache_manager.disconnect()
+
+
+# Replace the lifespan
+app.router.lifespan_context = test_lifespan
 
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = sessionmaker(
