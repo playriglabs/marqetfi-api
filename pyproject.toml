@@ -64,6 +64,7 @@ module = [
     "web3.*",
     "alembic.*",
     "pydantic.*",
+    "aiohttp.*"
 ]
 ignore_missing_imports = true
 
