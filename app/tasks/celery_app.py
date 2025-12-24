@@ -11,7 +11,7 @@ celery_app = Celery(
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=[
-        "app.tasks.example_tasks",
+        "app.tasks.risk_monitoring_tasks",
     ],
 )
 
@@ -26,13 +26,21 @@ celery_app.conf.update(
     task_soft_time_limit=25 * 60,  # 25 minutes
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=1000,
+    # Shutdown configuration for graceful termination
+    worker_shutdown_timeout=10.0,  # Time to wait for tasks to complete before force shutdown
+    worker_disable_rate_limits=False,
+    worker_enable_remote_control=True,
+    # Graceful shutdown settings
+    worker_send_task_events=True,
+    task_acks_late=True,  # Acknowledge tasks after completion
+    task_reject_on_worker_lost=True,  # Reject tasks if worker dies
 )
 
 # Optional: Celery Beat schedule for periodic tasks
 celery_app.conf.beat_schedule = {
-    # Example: Run every 5 minutes
-    # "periodic-task-example": {
-    #     "task": "app.tasks.example_tasks.example_periodic_task",
-    #     "schedule": 300.0,  # 5 minutes in seconds
-    # },
+    # Risk monitoring: Run every 30 seconds
+    "monitor-position-risk": {
+        "task": "monitor_position_risk",
+        "schedule": 30.0,  # 30 seconds
+    },
 }

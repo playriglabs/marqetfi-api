@@ -3,13 +3,13 @@ fastapi
 uvicorn[standard]
 pydantic
 pydantic-settings
-email-validator
 
 # Database
 sqlalchemy
 asyncpg
 alembic
 aiosqlite
+greenlet
 
 # Redis & Celery
 redis
