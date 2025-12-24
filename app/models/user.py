@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.analytics import TradeHistory, UserStats
     from app.models.auth import OAuthConnection, Session, WalletConnection
     from app.models.deposit import Deposit
+    from app.models.risk import RiskEvent, RiskLimit
     from app.models.trading import Order, Position, Trade
     from app.models.wallet import Wallet
 
@@ -68,7 +69,10 @@ class User(Base):
         "WalletConnection", back_populates="user", cascade="all, delete-orphan"
     )
     wallets: Mapped[list["Wallet"]] = relationship(
-        "Wallet", back_populates="user", cascade="all, delete-orphan"
+        "Wallet",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="[Wallet.user_id]",
     )
     orders: Mapped[list["Order"]] = relationship(
         "Order", back_populates="user", cascade="all, delete-orphan"
@@ -90,6 +94,12 @@ class User(Base):
     )
     deposits: Mapped[list["Deposit"]] = relationship(
         "Deposit", back_populates="user", cascade="all, delete-orphan"
+    )
+    risk_limits: Mapped[list["RiskLimit"]] = relationship(
+        "RiskLimit", back_populates="user", cascade="all, delete-orphan"
+    )
+    risk_events: Mapped[list["RiskEvent"]] = relationship(
+        "RiskEvent", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

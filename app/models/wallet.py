@@ -38,7 +38,9 @@ class Wallet(Base):
     )
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="wallets")
+    user: Mapped["User"] = relationship(
+        "User", back_populates="wallets", foreign_keys="[Wallet.user_id]"
+    )
 
     # Indexes
     __table_args__ = (

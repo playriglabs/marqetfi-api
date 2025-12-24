@@ -54,6 +54,8 @@ class OAuthService:
         Raises:
             ValueError: If state is invalid or expired
         """
+        from typing import cast
+
         state_key = f"oauth:state:{state}"
         state_data = await cache_manager.get(state_key)
 
@@ -63,7 +65,7 @@ class OAuthService:
         # Delete state after use (one-time use)
         await cache_manager.delete(state_key)
 
-        return state_data
+        return cast(dict[str, str], state_data)
 
     async def get_oauth_authorization_url(
         self,
@@ -137,7 +139,9 @@ class OAuthService:
             state_data = await self._validate_oauth_state(state)
             # Use provider and redirect_uri from state if not provided
             provider = provider or state_data.get("provider")
-            redirect_uri = redirect_uri or state_data.get("redirect_uri") or settings.AUTH0_OAUTH_REDIRECT_URI
+            redirect_uri = (
+                redirect_uri or state_data.get("redirect_uri") or settings.AUTH0_OAUTH_REDIRECT_URI
+            )
         except ValueError as e:
             raise ValueError(f"OAuth state validation failed: {str(e)}") from e
 

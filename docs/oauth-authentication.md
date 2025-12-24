@@ -212,10 +212,10 @@ const initiateOAuth = async (provider: 'google' | 'apple') => {
     `http://localhost:8000/api/v1/auth/oauth/authorize/${provider}`
   );
   const { authorization_url, state } = await response.json();
-  
+
   // Store state in sessionStorage for validation
   sessionStorage.setItem('oauth_state', state);
-  
+
   // Redirect user to authorization URL
   window.location.href = authorization_url;
 };
@@ -226,18 +226,18 @@ const handleCallback = async () => {
   const code = urlParams.get('code');
   const state = urlParams.get('state');
   const storedState = sessionStorage.getItem('oauth_state');
-  
+
   // Validate state
   if (state !== storedState) {
     console.error('Invalid OAuth state');
     return;
   }
-  
+
   // Exchange code for tokens
   const response = await fetch(
     `http://localhost:8000/api/v1/auth/oauth/callback?code=${code}&state=${state}`
   );
-  
+
   if (response.ok) {
     const { access_token, refresh_token } = await response.json();
     // Store tokens and redirect to app
@@ -285,4 +285,3 @@ const handleCallback = async () => {
 - [Authentication Overview](./PRD.md#authentication)
 - [Configuration Management](./configuration-management.md)
 - [API Documentation](http://localhost:8000/docs)
-

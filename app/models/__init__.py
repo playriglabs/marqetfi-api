@@ -17,6 +17,7 @@ from app.models.enums import (
 )
 from app.models.ostium_settings import OstiumSettings
 from app.models.provider import OstiumWallet
+from app.models.risk import RiskEvent, RiskLimit
 from app.models.trading import Order, Position, Trade
 from app.models.user import User
 from app.models.wallet import Wallet
@@ -46,6 +47,9 @@ __all__ = [
     # Configuration
     "AppConfiguration",
     "ProviderConfiguration",
+    # Risk
+    "RiskLimit",
+    "RiskEvent",
     # Enums
     "AuthMethod",
     "WalletType",

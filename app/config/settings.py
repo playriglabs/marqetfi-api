@@ -170,9 +170,7 @@ class Settings(BaseSettings):
     )
 
     # Swap Provider Settings
-    SWAP_PROVIDER: str = Field(
-        default="lifi", description="Default swap provider (lifi)"
-    )
+    SWAP_PROVIDER: str = Field(default="lifi", description="Default swap provider (lifi)")
     LIFI_API_URL: str = Field(default="https://li.xyz/v1", description="LI-FI API base URL")
     LIFI_API_KEY: str | None = Field(default=None, description="LI-FI API key (if required)")
     lifi_enabled: bool = Field(default=True, description="Enable LI-FI swap provider")
