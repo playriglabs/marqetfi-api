@@ -4,6 +4,7 @@ import argparse
 import signal
 import subprocess
 import sys
+import time
 from typing import Any
 
 import uvicorn
@@ -14,6 +15,7 @@ settings = get_settings()
 
 # Global process list for cleanup
 processes: list[subprocess.Popen[bytes]] = []
+_shutting_down = False
 
 
 def run_server() -> None:
@@ -64,15 +66,57 @@ def run_celery_beat() -> None:
 
 def signal_handler(sig: int, frame: Any) -> None:
     """Handle shutdown signals."""
-    print("\nShutting down services...")
+    global _shutting_down
+
+    if _shutting_down:
+        # Force kill on second interrupt
+        print("\n⚠️  Force killing all processes...")
+        for process in processes:
+            if process.poll() is None:
+                try:
+                    process.kill()
+                    process.wait(timeout=1)
+                except (subprocess.TimeoutExpired, ProcessLookupError):
+                    pass
+        sys.exit(1)
+
+    _shutting_down = True
+    print("\n🛑 Shutting down services gracefully...")
+
+    # Terminate all processes
     for process in processes:
         if process.poll() is None:  # Process is still running
-            process.terminate()
             try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
+                process.terminate()
+            except ProcessLookupError:
+                pass
+
+    # Wait for graceful shutdown (max 3 seconds)
+    start_time = time.time()
+    timeout = 3.0
+
+    while time.time() - start_time < timeout:
+        all_done = True
+        for process in processes:
+            if process.poll() is None:
+                all_done = False
+                break
+        if all_done:
+            print("✅ All services stopped gracefully")
+            sys.exit(0)
+        time.sleep(0.1)
+
+    # Force kill if still running
+    print("⚠️  Some processes didn't stop, force killing...")
+    for process in processes:
+        if process.poll() is None:
+            try:
                 process.kill()
-                process.wait()
+                process.wait(timeout=1)
+            except (subprocess.TimeoutExpired, ProcessLookupError):
+                pass
+
+    print("✅ All services stopped")
     sys.exit(0)
 
 
@@ -137,7 +181,7 @@ def main() -> None:
         )
         processes.append(server_process)
 
-        # Start Celery worker in subprocess
+        # Start Celery worker in subprocess (use solo pool for better shutdown)
         worker_process = subprocess.Popen(
             [
                 sys.executable,
@@ -147,6 +191,7 @@ def main() -> None:
                 "app.tasks.celery_app",
                 "worker",
                 "--loglevel=info",
+                "--pool=solo",  # Better shutdown handling
             ],
         )
         processes.append(worker_process)
@@ -168,8 +213,13 @@ def main() -> None:
 
         # Wait for all processes
         try:
-            for process in processes:
-                process.wait()
+            while True:
+                # Check if any process is still running
+                running = [p for p in processes if p.poll() is None]
+                if not running:
+                    break
+                # Wait a bit before checking again
+                time.sleep(0.5)
         except KeyboardInterrupt:
             signal_handler(signal.SIGINT, None)
 

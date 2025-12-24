@@ -35,11 +35,36 @@ class InterceptHandler(logging.Handler):
 
 def setup_logging() -> None:
     """Configure application logging."""
+    # Remove default loguru handler
+    logger.remove()
+
+    # Configure based on format
+    if settings.LOG_FORMAT == "json":
+        # JSON format for production/log aggregation
+        handler_config = {
+            "sink": sys.stdout,
+            "serialize": True,
+            "format": "{time} | {level} | {name}:{function}:{line} | {message}",
+        }
+    else:
+        # Pretty format for development (loguru's default)
+        handler_config = {
+            "sink": sys.stdout,
+            "format": (
+                "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+                "<level>{level: <8}</level> | "
+                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+                "<level>{message}</level>"
+            ),
+            "colorize": True,
+        }
+
+    logger.add(**handler_config)
+
+    # Intercept standard logging
     logging.root.handlers = [InterceptHandler()]
     logging.root.setLevel(settings.LOG_LEVEL)
 
     for name in logging.root.manager.loggerDict.keys():
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
-
-    logger.configure(handlers=[{"sink": sys.stdout, "serialize": settings.LOG_FORMAT == "json"}])
