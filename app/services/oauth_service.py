@@ -7,12 +7,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.cache import cache_manager
 from app.models.auth import OAuthConnection
 from app.models.user import User
 from app.services.auth0_service import Auth0Service
 from app.services.auth_service import AuthenticationService
 
 settings = get_settings()
+
+# OAuth state expiration time (10 minutes)
+OAUTH_STATE_EXPIRATION = 600
 
 
 class OAuthService:
@@ -23,7 +27,45 @@ class OAuthService:
         self.auth0_service = Auth0Service()
         self.auth_service = AuthenticationService()
 
-    def get_oauth_authorization_url(
+    async def _store_oauth_state(self, state: str, provider: str, redirect_uri: str) -> None:
+        """Store OAuth state in cache.
+
+        Args:
+            state: State token
+            provider: OAuth provider
+            redirect_uri: Redirect URI
+        """
+        state_key = f"oauth:state:{state}"
+        state_data = {
+            "provider": provider,
+            "redirect_uri": redirect_uri,
+        }
+        await cache_manager.set(state_key, state_data, expire=OAUTH_STATE_EXPIRATION)
+
+    async def _validate_oauth_state(self, state: str) -> dict[str, str]:
+        """Validate OAuth state and retrieve state data.
+
+        Args:
+            state: State token to validate
+
+        Returns:
+            State data dictionary with provider and redirect_uri
+
+        Raises:
+            ValueError: If state is invalid or expired
+        """
+        state_key = f"oauth:state:{state}"
+        state_data = await cache_manager.get(state_key)
+
+        if not state_data:
+            raise ValueError("Invalid or expired OAuth state")
+
+        # Delete state after use (one-time use)
+        await cache_manager.delete(state_key)
+
+        return state_data
+
+    async def get_oauth_authorization_url(
         self,
         provider: str,
         redirect_uri: str | None = None,
@@ -55,6 +97,9 @@ class OAuthService:
         # Use configured redirect URI if not provided
         redirect_uri = redirect_uri or settings.AUTH0_OAUTH_REDIRECT_URI
 
+        # Store state in cache
+        await self._store_oauth_state(state, provider, redirect_uri)
+
         # Get authorization URL
         auth_url = self.auth0_service.get_authorization_url(
             provider=provider,
@@ -70,6 +115,7 @@ class OAuthService:
         code: str,
         state: str,
         redirect_uri: str | None = None,
+        provider: str | None = None,
     ) -> tuple[User, dict[str, Any]]:
         """Handle OAuth callback.
 
@@ -77,7 +123,8 @@ class OAuthService:
             db: Database session
             code: Authorization code
             state: State parameter (should match the one sent)
-            redirect_uri: Redirect URI
+            redirect_uri: Redirect URI (optional, will use from state if available)
+            provider: OAuth provider (optional, will use from state if available)
 
         Returns:
             Tuple of (User, tokens dict)
@@ -85,15 +132,61 @@ class OAuthService:
         Raises:
             ValueError: If state is invalid or callback fails
         """
-        # Use configured redirect URI if not provided
-        redirect_uri = redirect_uri or settings.AUTH0_OAUTH_REDIRECT_URI
+        # Validate state and get state data
+        try:
+            state_data = await self._validate_oauth_state(state)
+            # Use provider and redirect_uri from state if not provided
+            provider = provider or state_data.get("provider")
+            redirect_uri = redirect_uri or state_data.get("redirect_uri") or settings.AUTH0_OAUTH_REDIRECT_URI
+        except ValueError as e:
+            raise ValueError(f"OAuth state validation failed: {str(e)}") from e
 
-        # Handle callback via auth service
-        user, tokens = await self.auth_service.handle_oauth_callback(
+        # Validate provider matches state
+        if provider and state_data.get("provider") != provider:
+            raise ValueError("OAuth provider mismatch")
+
+        try:
+            # Exchange code for tokens
+            token_response = await self.auth0_service.exchange_code_for_tokens(
+                code=code,
+                redirect_uri=redirect_uri,
+            )
+        except Exception as e:
+            raise ValueError(f"OAuth token exchange failed: {str(e)}") from e
+
+        try:
+            # Get user info
+            userinfo = await self.auth0_service.get_userinfo(token_response["access_token"])
+        except Exception as e:
+            raise ValueError(f"OAuth user info retrieval failed: {str(e)}") from e
+
+        # Determine provider from userinfo if not provided
+        if not provider:
+            auth0_user_id = userinfo.get("sub", "")
+            if "google-oauth2" in auth0_user_id:
+                provider = "google"
+            elif "apple" in auth0_user_id:
+                provider = "apple"
+            else:
+                raise ValueError("Unable to determine OAuth provider from user info")
+
+        # Create or update user
+        user = await self.auth_service.create_or_update_user_from_auth0(db, userinfo)
+
+        # Store OAuth connection
+        auth0_user_id = userinfo.get("sub", "")
+        await self.auth_service._store_oauth_connection(
             db=db,
-            code=code,
-            redirect_uri=redirect_uri,
+            user=user,
+            provider=provider,
+            provider_user_id=auth0_user_id,
+            access_token=token_response["access_token"],
+            refresh_token=token_response.get("refresh_token"),
+            expires_in=token_response.get("expires_in", 3600),
         )
+
+        # Generate tokens
+        tokens = await self.auth_service._generate_tokens(db, user)
 
         return user, tokens
 
