@@ -35,6 +35,8 @@ temp/
 .beads
 .sdd
 .cursorrules
+openspec
+AGENTS.md
 
 # Test generation
 .coverage
