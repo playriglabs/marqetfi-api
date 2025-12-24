@@ -409,20 +409,22 @@ class AuthenticationService:
             # Determine auth method from linked_accounts
             linked_accounts = provider_userinfo.get("linked_accounts", [])
             auth_method = AuthMethod.WALLET  # Default to wallet
-            
+
             # Check linked accounts to determine auth method
             has_email = False
             has_wallet = False
             for account in linked_accounts:
-                account_dict = account if isinstance(account, dict) else (
-                    account.to_dict() if hasattr(account, "to_dict") else {}
+                account_dict = (
+                    account
+                    if isinstance(account, dict)
+                    else (account.to_dict() if hasattr(account, "to_dict") else {})
                 )
                 account_type = account_dict.get("type") or account_dict.get("account_type", "")
                 if account_type == "email":
                     has_email = True
                 elif account_type in ["wallet", "ethereum", "solana"]:
                     has_wallet = True
-            
+
             # Set auth method based on linked accounts
             if has_email and not has_wallet:
                 auth_method = AuthMethod.EMAIL
@@ -435,8 +437,10 @@ class AuthenticationService:
             if not email and linked_accounts:
                 # Extract email from linked_accounts
                 for account in linked_accounts:
-                    account_dict = account if isinstance(account, dict) else (
-                        account.to_dict() if hasattr(account, "to_dict") else {}
+                    account_dict = (
+                        account
+                        if isinstance(account, dict)
+                        else (account.to_dict() if hasattr(account, "to_dict") else {})
                     )
                     account_type = account_dict.get("type") or account_dict.get("account_type", "")
                     if account_type == "email":
@@ -473,7 +477,7 @@ class AuthenticationService:
                 existing_user = None
                 if email:
                     existing_user = await self.user_service.get_user_by_email(db, email)
-                
+
                 if existing_user:
                     # Link Privy account to existing user
                     existing_user.privy_user_id = provider_user_id
