@@ -183,19 +183,30 @@ class PrivyAuthProvider(BaseAuthProvider):
             verified_token = await client.auth.verify_access_token(token)
 
             # Convert to dict if needed
+            token_dict: dict[str, Any] | None = None
             if hasattr(verified_token, "to_dict"):
                 token_dict = verified_token.to_dict()
             elif isinstance(verified_token, dict):
                 token_dict = verified_token
             else:
                 # Extract attributes if it's an object
+                user_id = getattr(verified_token, "user_id", None) or getattr(
+                    verified_token, "sub", None
+                )
                 token_dict = {
-                    "user_id": getattr(verified_token, "user_id", None),
-                    "sub": getattr(verified_token, "user_id", None),  # Use sub for consistency
+                    "user_id": user_id,
+                    "sub": user_id,  # Use sub for consistency with JWT standard
                     "email": getattr(verified_token, "email", None),
                     "exp": getattr(verified_token, "exp", None),
                     "iat": getattr(verified_token, "iat", None),
                 }
+
+            # Ensure user_id and sub are set
+            if token_dict:
+                if "user_id" not in token_dict and "sub" in token_dict:
+                    token_dict["user_id"] = token_dict["sub"]
+                elif "sub" not in token_dict and "user_id" in token_dict:
+                    token_dict["sub"] = token_dict["user_id"]
 
             return cast(dict[str, Any], token_dict) if token_dict else None
         except (AuthenticationError, APIStatusError):
@@ -207,11 +218,14 @@ class PrivyAuthProvider(BaseAuthProvider):
     async def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
         """Get user by Privy user ID.
 
+        According to Privy docs: https://docs.privy.io/basics/python/quickstart
+        Users have linked_accounts array containing email, wallet, etc.
+
         Args:
             user_id: Privy user identifier (UUID)
 
         Returns:
-            User data or None if not found
+            User data with email extracted from linked_accounts or None if not found
         """
         if not self.app_id or not self.app_secret:
             return None
@@ -223,17 +237,49 @@ class PrivyAuthProvider(BaseAuthProvider):
             user = await client.users.get(user_id)
 
             # Convert to dict
+            user_dict: dict[str, Any] | None = None
             if hasattr(user, "to_dict"):
-                return cast(dict[str, Any], user.to_dict())
-            if isinstance(user, dict):
-                return cast(dict[str, Any], user)
-            # Extract attributes if it's an object
+                user_dict = cast(dict[str, Any], user.to_dict())
+            elif isinstance(user, dict):
+                user_dict = cast(dict[str, Any], user)
+            else:
+                # Extract attributes if it's an object
+                user_dict = {
+                    "id": getattr(user, "id", user_id),
+                    "user_id": getattr(user, "id", user_id),
+                    "created_at": getattr(user, "created_at", None),
+                    "linked_accounts": getattr(user, "linked_accounts", []),
+                }
+
+            if not user_dict:
+                return None
+
+            # Extract email from linked_accounts
+            # Privy stores email in linked_accounts array with type "email"
+            email = None
+            linked_accounts = user_dict.get("linked_accounts", [])
+            if isinstance(linked_accounts, list):
+                for account in linked_accounts:
+                    account_dict = account.to_dict() if hasattr(account, "to_dict") else account
+                    if isinstance(account_dict, dict):
+                        account_type = account_dict.get("type") or account_dict.get("account_type")
+                        if account_type == "email":
+                            email = account_dict.get("address") or account_dict.get("email")
+                            break
+
+            # Also check if email is directly on user object
+            if not email:
+                email = user_dict.get("email")
+
+            # Build user info dict
             return {
-                "id": getattr(user, "id", user_id),
-                "user_id": getattr(user, "id", user_id),
-                "email": getattr(user, "email", None),
-                "created_at": getattr(user, "created_at", None),
-                "linked_accounts": getattr(user, "linked_accounts", []),
+                "id": user_dict.get("id", user_id),
+                "user_id": user_dict.get("id", user_id),
+                "sub": user_dict.get("id", user_id),  # Use sub for consistency
+                "email": email,
+                "email_verified": user_dict.get("email_verified", False),
+                "created_at": user_dict.get("created_at"),
+                "linked_accounts": linked_accounts,
             }
         except (APIStatusError, APIError):
             # User not found or API error
