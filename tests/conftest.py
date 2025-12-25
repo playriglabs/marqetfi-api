@@ -75,3 +75,103 @@ def client(db_session: AsyncSession) -> TestClient:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+# Mock fixtures for providers
+@pytest.fixture
+def mock_wallet_provider():
+    """Create a mock wallet provider."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.wallet_providers.base import BaseWalletProvider
+
+    mock_provider = MagicMock(spec=BaseWalletProvider)
+    mock_provider.create_wallet = AsyncMock(
+        return_value={
+            "wallet_id": "test_wallet_id",
+            "address": "0x1234567890123456789012345678901234567890",
+            "network": "testnet",
+            "metadata": {},
+        }
+    )
+    mock_provider.get_wallet_address = AsyncMock(
+        return_value="0x1234567890123456789012345678901234567890"
+    )
+    mock_provider.sign_transaction = AsyncMock(return_value="0x" + "a" * 64)
+    mock_provider.sign_message = AsyncMock(return_value="0x" + "b" * 64)
+    mock_provider.get_wallet_info = AsyncMock(
+        return_value={
+            "wallet_id": "test_wallet_id",
+            "address": "0x1234567890123456789012345678901234567890",
+            "network": "testnet",
+            "metadata": {},
+        }
+    )
+    mock_provider.initialize = AsyncMock()
+    return mock_provider
+
+
+@pytest.fixture
+def mock_trading_provider():
+    """Create a mock trading provider."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.providers.base import BaseTradingProvider
+
+    mock_provider = MagicMock(spec=BaseTradingProvider)
+    mock_provider.place_order = AsyncMock()
+    mock_provider.cancel_order = AsyncMock()
+    mock_provider.get_order_status = AsyncMock()
+    mock_provider.get_positions = AsyncMock(return_value=[])
+    mock_provider.initialize = AsyncMock()
+    return mock_provider
+
+
+@pytest.fixture
+def mock_price_provider():
+    """Create a mock price provider."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.providers.base import BasePriceProvider
+
+    mock_provider = MagicMock(spec=BasePriceProvider)
+    mock_provider.get_price = AsyncMock(return_value={"price": 100.0, "timestamp": 1234567890})
+    mock_provider.get_orderbook = AsyncMock(return_value={"bids": [], "asks": []})
+    mock_provider.initialize = AsyncMock()
+    return mock_provider
+
+
+@pytest.fixture
+def mock_auth_provider():
+    """Create a mock auth provider."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.providers.base import BaseAuthProvider
+
+    mock_provider = MagicMock(spec=BaseAuthProvider)
+    mock_provider.authenticate = AsyncMock(return_value={"user_id": "123", "email": "test@example.com"})
+    mock_provider.get_user_info = AsyncMock(return_value={"user_id": "123", "email": "test@example.com"})
+    mock_provider.verify_token = AsyncMock(return_value=True)
+    mock_provider.initialize = AsyncMock()
+    return mock_provider
+
+
+# Model fixtures
+@pytest.fixture
+def sample_ostium_wallet():
+    """Create a sample OstiumWallet model instance."""
+    from datetime import datetime
+
+    from app.models.provider import OstiumWallet
+
+    return OstiumWallet(
+        id=1,
+        provider_type="privy",
+        provider_wallet_id="test_wallet_id",
+        wallet_address="0x1234567890123456789012345678901234567890",
+        network="testnet",
+        is_active=True,
+        metadata={"test": "data"},
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
