@@ -1,8 +1,10 @@
 """Database connection and session management."""
 
+import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -66,8 +68,26 @@ async def get_db() -> AsyncGenerator[AsyncSession, Any]:
 
 async def init_db() -> None:
     """Initialize database tables."""
-    async with get_engine().begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    retries = 5
+    delay = 2.0
+
+    for attempt in range(retries):
+        try:
+            async with get_engine().begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database initialized successfully")
+            return
+        except Exception as e:
+            if attempt == retries - 1:
+                logger.error(f"Failed to initialize database after {retries} attempts: {e}")
+                raise
+
+            logger.warning(
+                f"Database connection attempt {attempt + 1}/{retries} failed. "
+                f"Retrying in {delay}s... Error: {e}"
+            )
+            await asyncio.sleep(delay)
+            delay *= 2  # Exponential backoff
 
 
 async def close_db() -> None:
