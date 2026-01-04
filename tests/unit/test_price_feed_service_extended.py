@@ -59,7 +59,9 @@ class TestPriceFeedServiceExtended:
             mock_cache.get = AsyncMock(return_value=None)
             mock_cache.set = AsyncMock()
 
-            results = await price_service.get_prices_by_pairs(["BTCUSDT", "ETHUSDT"], use_cache=True)
+            results = await price_service.get_prices_by_pairs(
+                ["BTCUSDT", "ETHUSDT"], use_cache=True
+            )
 
             assert "BTCUSDT" in results
             assert len(results) >= 1
@@ -92,8 +94,12 @@ class TestPriceFeedServiceExtended:
         mock_provider = MagicMock()
         mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
 
-        with patch("app.services.price_feed_service.get_provider_router", return_value=mock_router), patch(
-            "app.services.price_feed_service.ProviderFactory.get_price_provider", return_value=mock_provider
+        with (
+            patch("app.services.price_feed_service.get_provider_router", return_value=mock_router),
+            patch(
+                "app.services.providers.factory.ProviderFactory.get_price_provider",
+                return_value=mock_provider,
+            ),
         ):
             price_service.router = mock_router
 
@@ -109,8 +115,12 @@ class TestPriceFeedServiceExtended:
         mock_provider = MagicMock()
         mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
 
-        with patch("app.services.price_feed_service.get_provider_router", return_value=mock_router), patch(
-            "app.services.price_feed_service.ProviderFactory.get_price_provider", return_value=mock_provider
+        with (
+            patch("app.services.price_feed_service.get_provider_router", return_value=mock_router),
+            patch(
+                "app.services.providers.factory.ProviderFactory.get_price_provider",
+                return_value=mock_provider,
+            ),
         ):
             price_service.router = mock_router
 
@@ -147,4 +157,3 @@ class TestPriceFeedServiceExtended:
 
         with pytest.raises(ValueError, match="Price provider not configured"):
             await price_service.get_prices([("BTC", "USDT")])
-

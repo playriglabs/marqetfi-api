@@ -290,7 +290,7 @@ class TestWalletAuthService:
             "metadata": {"key": "value"},
         }
 
-        with patch("app.services.wallet_auth_service.WalletProviderFactory") as mock_factory:
+        with patch("app.services.wallet_providers.factory.WalletProviderFactory") as mock_factory:
             mock_provider = MagicMock()
             mock_provider.create_wallet = AsyncMock(return_value=wallet_data)
             mock_provider.initialize = AsyncMock()
@@ -357,7 +357,7 @@ class TestWalletAuthService:
         existing_wallet = MagicMock()
         existing_wallet.user_id = 999  # Different user
 
-        with patch("app.services.wallet_auth_service.WalletProviderFactory") as mock_factory:
+        with patch("app.services.wallet_providers.factory.WalletProviderFactory") as mock_factory:
             mock_provider = MagicMock()
             mock_provider.create_wallet = AsyncMock(return_value=wallet_data)
             mock_provider.initialize = AsyncMock()

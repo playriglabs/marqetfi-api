@@ -62,10 +62,11 @@ class TestLighterSettlementProvider:
         with (
             patch("app.services.providers.lighter.settlement.lighter") as mock_lighter,
             patch.object(settlement_provider.lighter_service, "initialize", new_callable=AsyncMock),
-            patch.object(settlement_provider.lighter_service, "client", new_callable=MagicMock),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value={"id": "order_123"}),
         ):
             mock_lighter.OrderApi = MagicMock(return_value=mock_order_api)
+            # Set flags manually since we're patching initialize
+            settlement_provider.lighter_service._initialized = True
             settlement_provider.lighter_service._client = MagicMock()
 
             result = await settlement_provider.execute_trade(
@@ -101,7 +102,6 @@ class TestLighterSettlementProvider:
         with (
             patch("app.services.providers.lighter.settlement.lighter") as mock_lighter,
             patch.object(settlement_provider.lighter_service, "initialize", new_callable=AsyncMock),
-            patch.object(settlement_provider.lighter_service, "client", new_callable=MagicMock),
             patch(
                 "asyncio.to_thread",
                 new_callable=AsyncMock,
@@ -109,6 +109,8 @@ class TestLighterSettlementProvider:
             ),
         ):
             mock_lighter.OrderApi = MagicMock(return_value=mock_order_api)
+            # Set flags manually since we're patching initialize
+            settlement_provider.lighter_service._initialized = True
             settlement_provider.lighter_service._client = MagicMock()
 
             result = await settlement_provider.get_transaction_status("order_123")

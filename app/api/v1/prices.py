@@ -9,6 +9,26 @@ from app.services.price_feed_service import PriceFeedService
 router = APIRouter()
 
 
+@router.get("/pairs", response_model=list[dict])
+async def get_pairs(
+    category: str | None = None,
+    price_service: PriceFeedService = Depends(get_price_feed_service),
+) -> list[dict]:
+    """Get all available trading pairs.
+
+    Args:
+        category: Optional category filter (crypto, forex, indices, commodities)
+    """
+    try:
+        pairs = await price_service.get_pairs(category=category)
+        return pairs
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get pairs: {str(e)}",
+        ) from e
+
+
 @router.get("/{pair}", response_model=PriceResponse)
 async def get_price(
     pair: str,
@@ -71,24 +91,4 @@ async def get_prices(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get prices: {str(e)}",
-        ) from e
-
-
-@router.get("/pairs", response_model=list[dict])
-async def get_pairs(
-    category: str | None = None,
-    price_service: PriceFeedService = Depends(get_price_feed_service),
-) -> list[dict]:
-    """Get all available trading pairs.
-
-    Args:
-        category: Optional category filter (crypto, forex, indices, commodities)
-    """
-    try:
-        pairs = await price_service.get_pairs(category=category)
-        return pairs
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get pairs: {str(e)}",
         ) from e

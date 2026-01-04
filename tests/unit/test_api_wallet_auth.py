@@ -5,10 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_active_user, get_db
+from app.api.dependencies import get_current_active_user, get_current_user
 from app.main import app
 from app.models.user import User
-from app.models.auth import WalletConnection
 from app.services.wallet_auth_service import WalletAuthService
 
 
@@ -54,13 +53,19 @@ class TestWalletAuthAPI:
         service.connect_wallet = AsyncMock(return_value=mock_conn)
         service.create_mpc_wallet = AsyncMock(
             return_value={
-                "wallet_id": "wallet_123",
+                "wallet_id": 1,
                 "address": "0x123",
+                "wallet_address": "0x123",
                 "network": "mainnet",
                 "provider": "privy",
+                "provider_wallet_id": "privy_wallet_123",
+                "wallet_connection_id": 1,
+                "is_primary": True,
             }
         )
         mock_conn2 = MagicMock()
+        from datetime import datetime
+
         mock_conn2.id = 1
         mock_conn2.wallet_address = "0x123"
         mock_conn2.wallet_type = "external"
@@ -70,13 +75,12 @@ class TestWalletAuthAPI:
         mock_conn2.verified = True
         mock_conn2.verified_at = None
         mock_conn2.last_used_at = None
-        mock_conn2.created_at = None
+        mock_conn2.created_at = datetime.now()
         service.get_user_wallet_connections = AsyncMock(return_value=[mock_conn2])
         return service
 
     def test_get_wallet_nonce_success(self, client, mock_wallet_auth_service):
         """Test successful nonce generation."""
-        from app.api.v1.auth.wallet import wallet_auth_service
 
         with patch("app.api.v1.auth.wallet.wallet_auth_service", mock_wallet_auth_service):
             response = client.post(
@@ -91,9 +95,15 @@ class TestWalletAuthAPI:
 
     def test_connect_wallet_success(self, client, sample_user, mock_wallet_auth_service):
         """Test successful wallet connection."""
-        from app.api.v1.auth.wallet import wallet_auth_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
         try:
             with patch("app.api.v1.auth.wallet.wallet_auth_service", mock_wallet_auth_service):
@@ -116,9 +126,15 @@ class TestWalletAuthAPI:
 
     def test_create_mpc_wallet_success(self, client, sample_user, mock_wallet_auth_service):
         """Test successful MPC wallet creation."""
-        from app.api.v1.auth.wallet import wallet_auth_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
         try:
             with patch("app.api.v1.auth.wallet.wallet_auth_service", mock_wallet_auth_service):
@@ -136,9 +152,15 @@ class TestWalletAuthAPI:
 
     def test_get_wallet_connections_success(self, client, sample_user, mock_wallet_auth_service):
         """Test successful wallet connections retrieval."""
-        from app.api.v1.auth.wallet import wallet_auth_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
         try:
             with patch("app.api.v1.auth.wallet.wallet_auth_service", mock_wallet_auth_service):
@@ -153,4 +175,3 @@ class TestWalletAuthAPI:
                 assert len(data) == 1
         finally:
             app.dependency_overrides.clear()
-

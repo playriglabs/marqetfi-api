@@ -109,4 +109,3 @@ class TestPairParser:
             formatted = format_pair(asset, quote)
             # Should match original (case normalized)
             assert formatted == pair.upper()
-

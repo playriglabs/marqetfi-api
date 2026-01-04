@@ -1,12 +1,13 @@
 """Test risk admin API endpoints."""
 
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_admin_user, get_db
+from app.api.dependencies import get_current_admin_user
 from app.main import app
 from app.models.risk import RiskEvent, RiskLimit
 from app.services.risk_management_service import RiskManagementService
@@ -38,18 +39,40 @@ class TestRiskAdminAPI:
         """Create mock risk management service."""
         service = MagicMock(spec=RiskManagementService)
         service.get_user_risk_metrics = AsyncMock(
-            return_value={"total_positions": 5, "total_exposure": Decimal("1000.0")}
+            return_value={
+                "user_id": 1,
+                "total_positions": 5,
+                "aggregate_leverage": 2.5,
+                "total_position_size": 1000.0,
+                "total_collateral": 500.0,
+                "recent_risk_events": [],
+            }
         )
         service.get_platform_risk_metrics = AsyncMock(
-            return_value={"total_users": 100, "total_exposure": Decimal("100000.0")}
+            return_value={
+                "total_positions": 100,
+                "aggregate_leverage": 3.0,
+                "total_position_size": 100000.0,
+                "total_collateral": 50000.0,
+                "total_notional": 150000.0,
+            }
         )
         return service
 
     def test_create_risk_limit_success(self, client, mock_admin_user, db_session):
         """Test successful risk limit creation."""
-        from app.api.v1.admin.risk import RiskLimitRepository
+        from app.api.dependencies import get_current_user
+        from app.repositories.risk_repository import RiskLimitRepository
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            # Return a dict-like object that get_current_admin_user expects
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
             with patch.object(RiskLimitRepository, "create", new_callable=AsyncMock) as mock_repo:
@@ -84,12 +107,22 @@ class TestRiskAdminAPI:
 
     def test_list_risk_limits_success(self, client, mock_admin_user, db_session):
         """Test successful risk limits listing."""
-        from app.api.v1.admin.risk import RiskLimitRepository
+        from app.api.dependencies import get_current_user
+        from app.repositories.risk_repository import RiskLimitRepository
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch.object(RiskLimitRepository, "get_all_active", new_callable=AsyncMock) as mock_repo:
+            with patch.object(
+                RiskLimitRepository, "get_all_active", new_callable=AsyncMock
+            ) as mock_repo:
                 mock_limit = MagicMock(spec=RiskLimit)
                 mock_limit.id = 1
                 mock_limit.user_id = 1
@@ -113,9 +146,17 @@ class TestRiskAdminAPI:
 
     def test_get_user_risk_metrics_success(self, client, mock_admin_user, mock_risk_service):
         """Test successful user risk metrics retrieval."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.admin.risk import get_risk_service
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
         app.dependency_overrides[get_risk_service] = lambda: mock_risk_service
 
         try:
@@ -132,10 +173,23 @@ class TestRiskAdminAPI:
 
     def test_get_platform_risk_metrics_success(self, client, mock_admin_user, mock_risk_service):
         """Test successful platform risk metrics retrieval."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.admin.risk import get_risk_service
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
-        app.dependency_overrides[get_risk_service] = lambda: mock_risk_service
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
+
+        # The dependency function takes db as parameter
+        def override_get_risk_service(db=None):
+            return mock_risk_service
+
+        app.dependency_overrides[get_risk_service] = override_get_risk_service
 
         try:
             response = client.get(
@@ -145,24 +199,44 @@ class TestRiskAdminAPI:
 
             assert response.status_code == 200
             data = response.json()
-            assert "total_users" in data
+            assert "total_positions" in data
+            assert "aggregate_leverage" in data
+            assert "total_position_size" in data
+            assert "total_collateral" in data
+            assert "total_notional" in data
         finally:
             app.dependency_overrides.clear()
 
     def test_list_risk_events_success(self, client, mock_admin_user, db_session):
         """Test successful risk events listing."""
-        from app.api.v1.admin.risk import RiskEventRepository
+        from app.api.dependencies import get_current_user
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch.object(RiskEventRepository, "get_by_user", new_callable=AsyncMock) as mock_repo:
+            # Patch where the repository is instantiated in the endpoint
+            with patch("app.repositories.risk_repository.RiskEventRepository") as mock_repo_class:
+                mock_repo_instance = MagicMock()
                 mock_event = MagicMock(spec=RiskEvent)
                 mock_event.id = 1
                 mock_event.user_id = 1
                 mock_event.event_type = "leverage_exceeded"
                 mock_event.severity = "warning"
-                mock_repo.return_value = [mock_event]
+                mock_event.threshold = Decimal("1000.0")
+                mock_event.current_value = Decimal("1100.0")
+                mock_event.current_value = Decimal("1100.0")
+                mock_event.message = "Limit exceeded"
+                mock_event.created_at = datetime.utcnow()
+                mock_event.updated_at = datetime.utcnow()
+                mock_repo_instance.get_by_user = AsyncMock(return_value=[mock_event])
+                mock_repo_class.return_value = mock_repo_instance
 
                 response = client.get(
                     "/api/v1/admin/risk/events?user_id=1",
@@ -174,4 +248,3 @@ class TestRiskAdminAPI:
                 assert "items" in data
         finally:
             app.dependency_overrides.clear()
-

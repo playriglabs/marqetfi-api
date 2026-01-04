@@ -132,32 +132,30 @@ class TestAuth0AuthProvider:
 
         mock_user = {"user_id": "auth0|123", "email": "test@example.com"}
 
-        with patch.object(provider, "management_api") as mock_mgmt:
-            mock_mgmt.users.get = MagicMock(return_value=mock_user)
+        mock_mgmt = MagicMock()
+        mock_mgmt.users.get = MagicMock(return_value=mock_user)
+        provider._management_api = mock_mgmt
 
-            result = await provider.get_user_by_id("auth0|123")
+        result = await provider.get_user_by_id("auth0|123")
 
-            assert result is not None
-            assert result["email"] == "test@example.com"
-            # Access management_api property to trigger initialization
-            _ = provider.management_api
-            mock_mgmt.users.get.assert_called_once_with("auth0|123")
+        assert result is not None
+        assert result["email"] == "test@example.com"
+        mock_mgmt.users.get.assert_called_once_with("auth0|123")
 
     @pytest.mark.asyncio
     async def test_get_user_by_id_not_found(self, provider):
         """Test getting user by ID when not found."""
         await provider.initialize()
 
-        with patch.object(provider, "management_api") as mock_mgmt:
-            from auth0 import Auth0Error
+        from auth0 import Auth0Error
 
-            mock_mgmt.users.get = MagicMock(side_effect=Auth0Error(404, "Not found"))
+        mock_mgmt = MagicMock()
+        mock_mgmt.users.get = MagicMock(side_effect=Auth0Error(404, "not_found", "Not found"))
+        provider._management_api = mock_mgmt
 
-            result = await provider.get_user_by_id("auth0|999")
+        result = await provider.get_user_by_id("auth0|999")
 
-            assert result is None
-            # Access management_api property to trigger initialization
-            _ = provider.management_api
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_user_by_email_success(self, provider):
@@ -166,39 +164,35 @@ class TestAuth0AuthProvider:
 
         mock_users = [{"user_id": "auth0|123", "email": "test@example.com"}]
 
-        with patch.object(provider, "management_api") as mock_mgmt:
-            mock_mgmt.users.list = MagicMock(return_value={"users": mock_users})
+        mock_mgmt = MagicMock()
+        mock_mgmt.users.list = MagicMock(return_value={"users": mock_users})
+        provider._management_api = mock_mgmt
 
-            result = await provider.get_user_by_email("test@example.com")
+        result = await provider.get_user_by_email("test@example.com")
 
-            assert result is not None
-            assert result["user_id"] == "auth0|123"
-            # Access management_api property to trigger initialization
-            _ = provider.management_api
+        assert result is not None
+        assert result["user_id"] == "auth0|123"
 
     @pytest.mark.asyncio
     async def test_get_user_by_email_not_found(self, provider):
         """Test getting user by email when not found."""
         await provider.initialize()
 
-        with patch.object(provider, "management_api") as mock_mgmt:
-            mock_mgmt.users.list = MagicMock(return_value={"users": []})
+        mock_mgmt = MagicMock()
+        mock_mgmt.users.list = MagicMock(return_value={"users": []})
+        provider._management_api = mock_mgmt
 
-            result = await provider.get_user_by_email("nonexistent@example.com")
+        result = await provider.get_user_by_email("nonexistent@example.com")
 
-            assert result is None
-            # Access management_api property to trigger initialization
-            _ = provider.management_api
+        assert result is None
 
     def test_extract_user_id_from_token(self, provider):
         """Test extracting user ID from token."""
-        with patch("app.services.providers.auth0.provider.verify_auth0_token") as mock_verify:
-            mock_verify.return_value = {"sub": "auth0|123"}
+        token_payload = {"sub": "auth0|123"}
 
-            result = provider.extract_user_id_from_token("token")
+        result = provider.extract_user_id_from_token(token_payload)
 
-            assert result == "auth0|123"
-            mock_verify.assert_called_once_with("token")
+        assert result == "auth0|123"
 
     @pytest.mark.asyncio
     async def test_management_api_property(self, provider):

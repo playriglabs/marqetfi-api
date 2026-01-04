@@ -89,25 +89,25 @@ class TestOstiumPriceProvider:
     @pytest.mark.asyncio
     async def test_get_price_success(self, price_provider):
         """Test getting price successfully."""
-        await price_provider.initialize()
+        # Mock initialization instead of calling it
+        price_provider.ostium_service._initialized = True
+        mock_sdk = MagicMock()
+        price_provider.ostium_service._sdk = mock_sdk
 
-        with patch.object(price_provider.ostium_service, "sdk") as mock_sdk:
-            mock_price = MagicMock()
-            mock_price.price.get_price = AsyncMock(return_value=(100.0, None))
-            mock_sdk.__getattr__ = MagicMock(return_value=mock_price)
+        with patch.object(price_provider.ostium_service, "_execute_with_retry") as mock_execute:
+            mock_execute.return_value = (100.0, None)
 
-            with patch.object(price_provider.ostium_service, "_execute_with_retry") as mock_execute:
-                mock_execute.return_value = (100.0, None)
+            price, timestamp, source = await price_provider.get_price("BTC", "USDT")
 
-                price, timestamp, source = await price_provider.get_price("BTC", "USDT")
-
-                assert price == 100.0
-                assert source == "ostium"
+            assert price == 100.0
+            assert source == "ostium"
 
     @pytest.mark.asyncio
     async def test_get_prices_success(self, price_provider):
         """Test getting multiple prices."""
-        await price_provider.initialize()
+        # Mock initialization instead of calling it
+        price_provider.ostium_service._initialized = True
+        price_provider.ostium_service._sdk = MagicMock()
 
         with patch.object(price_provider.ostium_service, "_execute_with_retry") as mock_execute:
             mock_execute.return_value = (100.0, None)
@@ -120,17 +120,18 @@ class TestOstiumPriceProvider:
     @pytest.mark.asyncio
     async def test_get_pairs_success(self, price_provider):
         """Test getting trading pairs."""
-        await price_provider.initialize()
+        # Mock initialization instead of calling it
+        price_provider.ostium_service._initialized = True
+        mock_sdk = MagicMock()
+        mock_subgraph = MagicMock()
+        mock_subgraph.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
+        mock_sdk.subgraph = mock_subgraph
+        price_provider.ostium_service._sdk = mock_sdk
 
-        with patch.object(price_provider.ostium_service, "sdk") as mock_sdk:
-            mock_subgraph = MagicMock()
-            mock_subgraph.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
-            mock_sdk.subgraph = mock_subgraph
+        pairs = await price_provider.get_pairs()
 
-            pairs = await price_provider.get_pairs()
-
-            assert len(pairs) == 1
-            assert pairs[0]["pair_id"] == 1
+        assert len(pairs) == 1
+        assert pairs[0]["pair_id"] == 1
 
 
 class TestOstiumTradingProvider:
@@ -154,11 +155,12 @@ class TestOstiumTradingProvider:
     @pytest.mark.asyncio
     async def test_open_trade_success(self, trading_provider):
         """Test opening trade successfully."""
-        await trading_provider.initialize()
+        # Mock initialization instead of calling it
+        trading_provider.ostium_service._initialized = True
+        trading_provider.ostium_service._sdk = MagicMock()
 
         with patch.object(trading_provider.ostium_service, "_execute_with_retry") as mock_execute:
-            mock_receipt = MagicMock()
-            mock_receipt.transactionHash = "0x123"
+            mock_receipt = {"transactionHash": "0x123"}
             mock_execute.return_value = mock_receipt
 
             result = await trading_provider.open_trade(
@@ -174,44 +176,49 @@ class TestOstiumTradingProvider:
     @pytest.mark.asyncio
     async def test_close_trade_success(self, trading_provider):
         """Test closing trade successfully."""
-        await trading_provider.initialize()
+        # Mock initialization instead of calling it
+        trading_provider.ostium_service._initialized = True
+        trading_provider.ostium_service._sdk = MagicMock()
 
         with patch.object(trading_provider.ostium_service, "_execute_with_retry") as mock_execute:
-            mock_receipt = MagicMock()
-            mock_receipt.transactionHash = "0x456"
+            mock_receipt = {"transactionHash": "0x456"}
             mock_execute.return_value = mock_receipt
 
-            result = await trading_provider.close_trade(pair_id=1, index=0)
+            result = await trading_provider.close_trade(pair_id=1, trade_index=0)
 
             assert result["status"] == "closed"
 
     @pytest.mark.asyncio
     async def test_get_open_trades_success(self, trading_provider):
         """Test getting open trades."""
-        await trading_provider.initialize()
+        # Mock initialization instead of calling it
+        trading_provider.ostium_service._initialized = True
+        mock_sdk = MagicMock()
+        mock_subgraph = MagicMock()
+        mock_subgraph.get_open_trades = AsyncMock(return_value=[{"trade_id": "123"}])
+        mock_sdk.subgraph = mock_subgraph
+        trading_provider.ostium_service._sdk = mock_sdk
 
-        with patch.object(trading_provider.ostium_service, "sdk") as mock_sdk:
-            mock_ostium = MagicMock()
-            mock_ostium.get_open_trades = AsyncMock(return_value=[{"trade_id": "123"}])
-            mock_sdk.ostium = mock_ostium
-
-            result = await trading_provider.get_open_trades()
+        with patch.object(trading_provider.ostium_service, "_execute_with_retry") as mock_execute:
+            mock_execute.return_value = [{"trade_id": "123"}]
+            result = await trading_provider.get_open_trades(trader_address="0x123")
 
             assert len(result) == 1
 
     @pytest.mark.asyncio
     async def test_get_pairs_success(self, trading_provider):
         """Test getting trading pairs."""
-        await trading_provider.initialize()
+        # Mock initialization instead of calling it
+        trading_provider.ostium_service._initialized = True
+        mock_sdk = MagicMock()
+        mock_subgraph = MagicMock()
+        mock_subgraph.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
+        mock_sdk.subgraph = mock_subgraph
+        trading_provider.ostium_service._sdk = mock_sdk
 
-        with patch.object(trading_provider.ostium_service, "sdk") as mock_sdk:
-            mock_subgraph = MagicMock()
-            mock_subgraph.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
-            mock_sdk.subgraph = mock_subgraph
+        pairs = await trading_provider.get_pairs()
 
-            pairs = await trading_provider.get_pairs()
-
-            assert len(pairs) == 1
+        assert len(pairs) == 1
 
 
 class TestOstiumSettlementProvider:
@@ -235,13 +242,14 @@ class TestOstiumSettlementProvider:
     @pytest.mark.asyncio
     async def test_execute_trade_success(self, settlement_provider):
         """Test executing trade successfully."""
-        await settlement_provider.initialize()
+        # Mock initialization instead of calling it
+        settlement_provider.ostium_service._initialized = True
+        settlement_provider.ostium_service._sdk = MagicMock()
 
         with patch.object(
             settlement_provider.ostium_service, "_execute_with_retry"
         ) as mock_execute:
-            mock_receipt = MagicMock()
-            mock_receipt.transactionHash = "0x123"
+            mock_receipt = {"transactionHash": "0x123"}
             mock_execute.return_value = mock_receipt
 
             result = await settlement_provider.execute_trade(
@@ -257,18 +265,19 @@ class TestOstiumSettlementProvider:
     @pytest.mark.asyncio
     async def test_get_transaction_status_success(self, settlement_provider):
         """Test getting transaction status."""
-        await settlement_provider.initialize()
+        # Mock initialization instead of calling it
+        settlement_provider.ostium_service._initialized = True
+        settlement_provider.ostium_service._sdk = MagicMock()
 
-        with patch.object(settlement_provider.ostium_service, "_web3") as mock_web3:
-            if mock_web3 is None:
-                settlement_provider.ostium_service._web3 = MagicMock()
-                mock_web3 = settlement_provider.ostium_service._web3
+        # Mock the get_web3 method to return a mock web3 instance
+        mock_web3 = MagicMock()
+        mock_web3.eth.get_transaction_receipt = MagicMock(
+            return_value={"status": 1, "blockNumber": 12345}
+        )
+        mock_web3.eth.block_number = 12350
+        settlement_provider.ostium_service._web3 = mock_web3
 
-            mock_web3.eth.get_transaction_receipt = MagicMock(
-                return_value={"status": 1, "blockNumber": 12345}
-            )
+        result = await settlement_provider.get_transaction_status("0x123")
 
-            result = await settlement_provider.get_transaction_status("0x123")
-
-            assert result["status"] == "confirmed"
-            assert result["block_number"] == 12345
+        assert result["status"] == "confirmed"
+        assert result["block_number"] == 12345

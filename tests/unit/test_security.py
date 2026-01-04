@@ -1,11 +1,10 @@
 """Test security utilities."""
 
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from unittest.mock import MagicMock
+from jose import JWTError
 
 from app.core.security import (
     create_access_token,
@@ -89,9 +88,10 @@ class TestSecurity:
 
     def test_get_auth0_jwks_success(self):
         """Test successful Auth0 JWKS retrieval."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "httpx.get"
-        ) as mock_get:
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("httpx.get") as mock_get,
+        ):
             mock_settings.return_value.AUTH0_DOMAIN = "test.auth0.com"
             mock_response = MagicMock()
             mock_response.json.return_value = {"keys": []}
@@ -113,8 +113,9 @@ class TestSecurity:
 
     def test_get_auth0_jwks_error(self):
         """Test Auth0 JWKS retrieval on error."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "httpx.get", side_effect=Exception("Network error")
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("httpx.get", side_effect=Exception("Network error")),
         ):
             mock_settings.return_value.AUTH0_DOMAIN = "test.auth0.com"
 
@@ -124,11 +125,25 @@ class TestSecurity:
 
     def test_verify_auth0_token_success(self):
         """Test successful Auth0 token verification."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.get_auth0_jwks", return_value={"keys": []}
-        ), patch("jose.jwt.decode", return_value={"sub": "user123"}):
-            mock_settings.return_value.AUTH0_DOMAIN = "test.auth0.com"
-            mock_settings.return_value.AUTH0_AUDIENCE = "test_audience"
+        with (
+            patch("app.core.security.settings") as mock_settings,
+            patch(
+                "app.core.security.get_auth0_jwks",
+                return_value={
+                    "keys": [
+                        {"kid": "test", "kty": "RSA", "use": "sig", "n": "test_n", "e": "test_e"}
+                    ]
+                },
+            ),
+            patch("jose.jwt.get_unverified_header", return_value={"kid": "test", "alg": "RS256"}),
+            patch("jose.jwk.construct", return_value=MagicMock()),
+            patch("jose.jwt.decode", return_value={"sub": "user123"}),
+        ):
+            mock_settings.AUTH0_DOMAIN = "test.auth0.com"
+            mock_settings.AUTH0_AUDIENCE = "test_audience"
+
+            # Additional mock for ALGORITHM if needed, depending on implementation details
+            mock_settings.AUTH0_ALGORITHM = "RS256"
 
             payload = verify_auth0_token("valid_token")
 
@@ -137,8 +152,8 @@ class TestSecurity:
 
     def test_verify_auth0_token_no_domain(self):
         """Test Auth0 token verification when domain not set."""
-        with patch("app.core.security.get_settings") as mock_settings:
-            mock_settings.return_value.AUTH0_DOMAIN = None
+        with patch("app.core.security.settings") as mock_settings:
+            mock_settings.AUTH0_DOMAIN = None
 
             payload = verify_auth0_token("token")
 
@@ -146,11 +161,12 @@ class TestSecurity:
 
     def test_verify_auth0_token_invalid(self):
         """Test Auth0 token verification with invalid token."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.get_auth0_jwks", return_value={"keys": []}
-        ), patch("jose.jwt.decode", side_effect=Exception("Invalid token")):
-            mock_settings.return_value.AUTH0_DOMAIN = "test.auth0.com"
-            mock_settings.return_value.AUTH0_AUDIENCE = "test_audience"
+        with (
+            patch("app.core.security.settings") as mock_settings,
+            patch("app.core.security.get_auth0_jwks", return_value={"keys": []}),
+        ):
+            mock_settings.AUTH0_DOMAIN = "test.auth0.com"
+            mock_settings.AUTH0_AUDIENCE = "test_audience"
 
             payload = verify_auth0_token("invalid_token")
 
@@ -159,9 +175,10 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_verify_privy_token_success(self):
         """Test successful Privy token verification."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.ProviderFactory"
-        ) as mock_factory:
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("app.services.providers.factory.ProviderFactory") as mock_factory,
+        ):
             mock_settings.return_value.PRIVY_APP_ID = "app_id"
             mock_settings.return_value.PRIVY_APP_SECRET = "secret"
             mock_provider = MagicMock()
@@ -186,8 +203,9 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_decode_token_auth0(self):
         """Test decoding Auth0 token."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.verify_auth0_token", return_value={"sub": "user123"}
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("app.core.security.verify_auth0_token", return_value={"sub": "user123"}),
         ):
             mock_settings.return_value.AUTH0_DOMAIN = "test.auth0.com"
 
@@ -199,8 +217,9 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_decode_token_privy(self):
         """Test decoding Privy token."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.verify_privy_token", return_value={"sub": "user123"}
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("app.core.security.verify_privy_token", return_value={"sub": "user123"}),
         ):
             mock_settings.return_value.PRIVY_APP_ID = "app_id"
             mock_settings.return_value.AUTH0_DOMAIN = None
@@ -213,9 +232,11 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_decode_token_custom(self):
         """Test decoding custom JWT token."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.ProviderRegistry"
-        ) as mock_registry, patch("jose.jwt.decode", return_value={"sub": "user123", "type": "access"}):
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("app.services.providers.registry.ProviderRegistry") as mock_registry,
+            patch("jose.jwt.decode", return_value={"sub": "user123", "type": "access"}),
+        ):
             mock_settings.return_value.AUTH0_DOMAIN = None
             mock_settings.return_value.PRIVY_APP_ID = None
             mock_settings.return_value.SECRET_KEY = "secret"
@@ -230,9 +251,11 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_decode_token_invalid(self):
         """Test decoding invalid token."""
-        with patch("app.core.security.get_settings") as mock_settings, patch(
-            "app.core.security.ProviderRegistry"
-        ) as mock_registry, patch("jose.jwt.decode", side_effect=Exception("Invalid")):
+        with (
+            patch("app.core.security.get_settings") as mock_settings,
+            patch("app.services.providers.registry.ProviderRegistry") as mock_registry,
+            patch("jose.jwt.decode", side_effect=JWTError("Invalid")),
+        ):
             mock_settings.return_value.AUTH0_DOMAIN = None
             mock_settings.return_value.PRIVY_APP_ID = None
             mock_settings.return_value.SECRET_KEY = "secret"
@@ -242,4 +265,3 @@ class TestSecurity:
             payload = await decode_token("invalid_token")
 
             assert payload is None
-

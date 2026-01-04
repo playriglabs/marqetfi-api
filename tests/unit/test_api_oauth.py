@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_active_user, get_db
+from app.api.dependencies import get_current_active_user, get_current_user
 from app.main import app
 from app.models.user import User
 from app.services.oauth_service import OAuthService
@@ -50,12 +50,14 @@ class TestOAuthAPI:
                 {"access_token": "token", "refresh_token": "refresh", "token_type": "bearer"},
             )
         )
+        from datetime import datetime
+
         service.link_oauth_account = AsyncMock(
             return_value=MagicMock(
                 id=1,
                 provider="google",
                 provider_user_id="google_123",
-                created_at=None,
+                created_at=datetime.now(),
             )
         )
         service.unlink_oauth_account = AsyncMock()
@@ -63,7 +65,6 @@ class TestOAuthAPI:
 
     def test_authorize_oauth_success(self, client, mock_oauth_service):
         """Test successful OAuth authorization."""
-        from app.api.v1.auth.oauth import oauth_service
 
         with patch("app.api.v1.auth.oauth.oauth_service", mock_oauth_service):
             response = client.get("/api/v1/auth/oauth/authorize/google")
@@ -75,12 +76,9 @@ class TestOAuthAPI:
 
     def test_oauth_callback_success(self, client, mock_oauth_service):
         """Test successful OAuth callback."""
-        from app.api.v1.auth.oauth import oauth_service
 
         with patch("app.api.v1.auth.oauth.oauth_service", mock_oauth_service):
-            response = client.get(
-                "/api/v1/auth/oauth/callback?code=auth_code&state=state123"
-            )
+            response = client.get("/api/v1/auth/oauth/callback?code=auth_code&state=state123")
 
             assert response.status_code == 200
             data = response.json()
@@ -88,7 +86,6 @@ class TestOAuthAPI:
 
     def test_google_oauth_callback_success(self, client, mock_oauth_service):
         """Test successful Google OAuth callback."""
-        from app.api.v1.auth.oauth import oauth_service
 
         with patch("app.api.v1.auth.oauth.oauth_service", mock_oauth_service):
             response = client.get(
@@ -101,12 +98,9 @@ class TestOAuthAPI:
 
     def test_apple_oauth_callback_success(self, client, mock_oauth_service):
         """Test successful Apple OAuth callback."""
-        from app.api.v1.auth.oauth import oauth_service
 
         with patch("app.api.v1.auth.oauth.oauth_service", mock_oauth_service):
-            response = client.get(
-                "/api/v1/auth/oauth/apple/callback?code=auth_code&state=state123"
-            )
+            response = client.get("/api/v1/auth/oauth/apple/callback?code=auth_code&state=state123")
 
             assert response.status_code == 200
             data = response.json()
@@ -114,15 +108,25 @@ class TestOAuthAPI:
 
     def test_link_oauth_account_success(self, client, sample_user, mock_oauth_service):
         """Test successful OAuth account linking."""
-        from app.api.v1.auth.oauth import oauth_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
         try:
             with patch("app.api.v1.auth.oauth.oauth_service", mock_oauth_service):
                 response = client.post(
                     "/api/v1/auth/oauth/link",
-                    json={"code": "auth_code", "redirect_uri": "https://app.com/callback"},
+                    json={
+                        "provider": "google",
+                        "code": "auth_code",
+                        "redirect_uri": "https://app.com/callback",
+                    },
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -134,9 +138,15 @@ class TestOAuthAPI:
 
     def test_unlink_oauth_account_success(self, client, sample_user, mock_oauth_service):
         """Test successful OAuth account unlinking."""
-        from app.api.v1.auth.oauth import oauth_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
         try:
             with patch("app.api.v1.auth.oauth.oauth_service", mock_oauth_service):
@@ -150,4 +160,3 @@ class TestOAuthAPI:
                 assert "message" in data
         finally:
             app.dependency_overrides.clear()
-

@@ -79,3 +79,5 @@ class LighterService(BaseExternalService):
                 await asyncio.to_thread(self._client.close)
             except Exception as e:
                 logger.warning(f"Error closing {self.service_name} client: {e}")
+            finally:
+                self._client = None

@@ -42,7 +42,10 @@ class TestDepositService:
     async def test_process_deposit_no_swap(self, service, mock_db, sample_deposit):
         """Test processing deposit without swap."""
         service.deposit_repo.create = AsyncMock(return_value=sample_deposit)
-        service.deposit_repo.update = AsyncMock(return_value=sample_deposit)
+        completed_deposit = MagicMock(spec=Deposit)
+        completed_deposit.id = 1
+        completed_deposit.status = "completed"
+        service.deposit_repo.update = AsyncMock(return_value=completed_deposit)
         service.check_swap_needed = AsyncMock(return_value=False)
 
         result = await service.process_deposit(
@@ -62,7 +65,10 @@ class TestDepositService:
     async def test_process_deposit_with_swap(self, service, mock_db, sample_deposit):
         """Test processing deposit with swap."""
         service.deposit_repo.create = AsyncMock(return_value=sample_deposit)
-        service.deposit_repo.update = AsyncMock(return_value=sample_deposit)
+        processing_deposit = MagicMock(spec=Deposit)
+        processing_deposit.id = 1
+        processing_deposit.status = "processing"
+        service.deposit_repo.update = AsyncMock(return_value=processing_deposit)
         service.check_swap_needed = AsyncMock(return_value=True)
         service.execute_automatic_swap = AsyncMock(return_value=MagicMock(spec=TokenSwap))
 
@@ -144,7 +150,7 @@ class TestDepositService:
         with patch("app.services.deposit_service.ProviderFactory") as mock_factory:
             mock_factory._get_provider_config = AsyncMock(side_effect=Exception("Config error"))
 
-            with patch("app.services.deposit_service.get_settings") as mock_settings:
+            with patch("app.config.get_settings") as mock_settings:
                 mock_settings.return_value = MagicMock(
                     ostium_required_token="USDC", ostium_required_chain="arbitrum"
                 )
@@ -170,12 +176,12 @@ class TestDepositService:
             mock_factory._get_provider_config = AsyncMock(return_value=mock_config)
 
             mock_swap_provider = MagicMock()
-            mock_swap_provider.get_swap_quote = AsyncMock(
-                return_value={"estimated_amount": "99.5"}
-            )
+            mock_swap_provider.get_swap_quote = AsyncMock(return_value={"estimated_amount": "99.5"})
             mock_factory.get_swap_provider = AsyncMock(return_value=mock_swap_provider)
 
-            with patch("app.services.deposit_service.ConfigurationService") as mock_config_service:
+            with patch(
+                "app.services.configuration_service.ConfigurationService"
+            ) as mock_config_service:
                 mock_config_instance = MagicMock()
                 mock_config_instance.get_config_with_fallback = AsyncMock(return_value="lifi")
                 mock_config_service.return_value = mock_config_instance
@@ -284,4 +290,3 @@ class TestDepositService:
         assert result["swap_needed"] is True
         assert len(result["swaps"]) == 1
         assert result["swaps"][0]["status"] == "pending"
-

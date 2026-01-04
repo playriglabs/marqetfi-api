@@ -39,6 +39,8 @@ class TestPrivyAuthProvider:
             await provider.initialize()
 
             assert provider._initialized is True
+            # AsyncPrivyAPI should be called when _get_client is called
+            await provider._get_client()
             mock_privy.assert_called_once()
 
     @pytest.mark.asyncio
@@ -46,8 +48,14 @@ class TestPrivyAuthProvider:
         """Test successful health check."""
         await provider.initialize()
 
-        with patch.object(provider, "_client") as mock_client:
-            mock_client.users.get = AsyncMock(return_value={"id": "user123"})
+        # The health_check method checks _initialized and _client
+        # Since _client is None initially (created lazily), we need to set it
+        # or ensure _get_client returns a client
+        with patch.object(provider, "_get_client") as mock_get_client:
+            mock_client = MagicMock()
+            mock_get_client.return_value = mock_client
+            # Also set _client so the initial check passes
+            provider._client = mock_client
 
             result = await provider.health_check()
 
@@ -64,8 +72,8 @@ class TestPrivyAuthProvider:
         """Test health check failure."""
         await provider.initialize()
 
-        with patch.object(provider, "_client") as mock_client:
-            mock_client.users.get = AsyncMock(side_effect=Exception("Error"))
+        with patch.object(provider, "_get_client") as mock_get_client:
+            mock_get_client.side_effect = Exception("Error")
 
             result = await provider.health_check()
 
@@ -76,8 +84,10 @@ class TestPrivyAuthProvider:
         """Test successful token verification."""
         await provider.initialize()
 
-        with patch.object(provider, "_client") as mock_client:
-            mock_client.auth.verify_token = AsyncMock(return_value={"sub": "user123"})
+        with patch.object(provider, "_get_client") as mock_get_client:
+            mock_client = MagicMock()
+            mock_client.auth.verify_access_token = AsyncMock(return_value={"sub": "user123"})
+            mock_get_client.return_value = mock_client
 
             result = await provider.verify_access_token("token")
 
@@ -89,10 +99,11 @@ class TestPrivyAuthProvider:
         """Test invalid token verification."""
         await provider.initialize()
 
-        with patch.object(provider, "_client") as mock_client:
-            from app.services.providers.privy.provider import AuthenticationError
-
-            mock_client.auth.verify_token = AsyncMock(side_effect=AuthenticationError("Invalid"))
+        with patch.object(provider, "_get_client") as mock_get_client:
+            mock_client = MagicMock()
+            # AuthenticationError likely inherits from APIStatusError and needs args
+            mock_client.auth.verify_access_token = AsyncMock(side_effect=Exception("Invalid"))
+            mock_get_client.return_value = mock_client
 
             result = await provider.verify_access_token("invalid_token")
 
@@ -124,8 +135,9 @@ class TestPrivyAuthProvider:
             from app.services.providers.privy.provider import APIStatusError
 
             mock_client = MagicMock()
-            mock_error = APIStatusError("Not found")
-            mock_error.status_code = 404
+            mock_response = MagicMock()
+            mock_response.status_code = 404
+            mock_error = APIStatusError("Not found", response=mock_response, body={})
             mock_client.users.get = AsyncMock(side_effect=mock_error)
             mock_get_client.return_value = mock_client
 
@@ -140,14 +152,20 @@ class TestPrivyAuthProvider:
 
         with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = MagicMock()
-            mock_client.users.get_by_email = AsyncMock(
+            # Mock users.list() to return a list with the user
+            mock_user = MagicMock()
+            mock_user.to_dict = MagicMock(
                 return_value={"id": "user123", "email": "test@example.com"}
             )
+            mock_users_response = MagicMock()
+            mock_users_response.to_dict = MagicMock(return_value={"users": [mock_user]})
+            mock_client.users.list = AsyncMock(return_value=mock_users_response)
             mock_get_client.return_value = mock_client
 
             result = await provider.get_user_by_email("test@example.com")
 
             assert result is not None
+            assert result["id"] == "user123"
             assert result["email"] == "test@example.com"
 
     @pytest.mark.asyncio
@@ -159,8 +177,9 @@ class TestPrivyAuthProvider:
             from app.services.providers.privy.provider import APIStatusError
 
             mock_client = MagicMock()
-            mock_error = APIStatusError("Not found")
-            mock_error.status_code = 404
+            mock_response = MagicMock()
+            mock_response.status_code = 404
+            mock_error = APIStatusError("Not found", response=mock_response, body={})
             mock_client.users.get_by_email = AsyncMock(side_effect=mock_error)
             mock_get_client.return_value = mock_client
 

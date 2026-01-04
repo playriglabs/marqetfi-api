@@ -16,9 +16,7 @@ class TestTradingService:
     def mock_trading_provider(self):
         """Create mock trading provider."""
         mock_provider = MagicMock(spec=BaseTradingProvider)
-        mock_provider.open_trade = AsyncMock(
-            return_value={"trade_id": "123", "status": "open"}
-        )
+        mock_provider.open_trade = AsyncMock(return_value={"trade_id": "123", "status": "open"})
         mock_provider.close_trade = AsyncMock(return_value={"status": "closed"})
         mock_provider.update_tp = AsyncMock(return_value={"status": "updated"})
         mock_provider.update_sl = AsyncMock(return_value={"status": "updated"})
@@ -325,4 +323,3 @@ class TestTradingService:
                 assert len(result) >= 1
                 # Should call for both lighter and ostium
                 assert mock_factory.get_trading_provider.call_count >= 1
-

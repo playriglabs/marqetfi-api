@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.models.enums import AuthMethod, FeatureAccessLevel, WalletType
+from app.models.enums import AuthMethod
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.services.user_service import UserService
@@ -33,18 +33,14 @@ class TestUserServiceExtended:
             password="password123",
         )
 
-        with patch.object(db_session, "add"), patch.object(
-            db_session, "commit", new_callable=AsyncMock
-        ), patch.object(db_session, "refresh", new_callable=AsyncMock):
-            with patch("app.services.user_service.User") as mock_user_class:
-                mock_user = MagicMock()
-                mock_user.id = 1
-                mock_user.email = "new@example.com"
-                mock_user_class.return_value = mock_user
+        with (
+            patch.object(db_session, "add"),
+            patch.object(db_session, "commit", new_callable=AsyncMock),
+            patch.object(db_session, "refresh", new_callable=AsyncMock),
+        ):
+            user = await UserService.create_user(db_session, user_data)
 
-                user = await UserService.create_user(db_session, user_data)
-
-                assert user is not None
+            assert user is not None
 
     @pytest.mark.asyncio
     async def test_get_user_by_id_success(self, db_session, sample_user):
@@ -87,8 +83,9 @@ class TestUserServiceExtended:
     @pytest.mark.asyncio
     async def test_authenticate_user_success(self, db_session, sample_user):
         """Test successful user authentication."""
-        with patch.object(UserService, "get_user_by_email", return_value=sample_user), patch(
-            "app.services.user_service.verify_password", return_value=True
+        with (
+            patch.object(UserService, "get_user_by_email", return_value=sample_user),
+            patch("app.services.user_service.verify_password", return_value=True),
         ):
             user = await UserService.authenticate_user(
                 db_session, email="test@example.com", password="password123"
@@ -99,8 +96,9 @@ class TestUserServiceExtended:
     @pytest.mark.asyncio
     async def test_authenticate_user_wrong_password(self, db_session, sample_user):
         """Test authentication with wrong password."""
-        with patch.object(UserService, "get_user_by_email", return_value=sample_user), patch(
-            "app.services.user_service.verify_password", return_value=False
+        with (
+            patch.object(UserService, "get_user_by_email", return_value=sample_user),
+            patch("app.services.user_service.verify_password", return_value=False),
         ):
             user = await UserService.authenticate_user(
                 db_session, email="test@example.com", password="wrong_password"
@@ -146,25 +144,21 @@ class TestUserServiceExtended:
             "email_verified": True,
         }
 
-        with patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute, patch.object(
-            UserService, "get_user_by_email", return_value=None
-        ), patch.object(db_session, "add"), patch.object(db_session, "commit", new_callable=AsyncMock), patch.object(
-            db_session, "refresh", new_callable=AsyncMock
+        with (
+            patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute,
+            patch.object(UserService, "get_user_by_email", return_value=None),
+            patch.object(db_session, "add"),
+            patch.object(db_session, "commit", new_callable=AsyncMock),
+            patch.object(db_session, "refresh", new_callable=AsyncMock),
         ):
             # Mock no existing user
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = None
             mock_execute.return_value = mock_result
 
-            with patch("app.services.user_service.User") as mock_user_class:
-                mock_user = MagicMock()
-                mock_user.id = 1
-                mock_user.email = "new@example.com"
-                mock_user_class.return_value = mock_user
+            user = await UserService.sync_user_from_auth0(db_session, auth0_userinfo)
 
-                user = await UserService.sync_user_from_auth0(db_session, auth0_userinfo)
-
-                assert user is not None
+            assert user is not None
 
     @pytest.mark.asyncio
     async def test_sync_user_from_auth0_existing_user(self, db_session, sample_user):
@@ -175,9 +169,11 @@ class TestUserServiceExtended:
             "name": "Updated User",
         }
 
-        with patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute, patch.object(
-            db_session, "commit", new_callable=AsyncMock
-        ), patch.object(db_session, "refresh", new_callable=AsyncMock):
+        with (
+            patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute,
+            patch.object(db_session, "commit", new_callable=AsyncMock),
+            patch.object(db_session, "refresh", new_callable=AsyncMock),
+        ):
             # Mock existing user
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = sample_user
@@ -196,22 +192,18 @@ class TestUserServiceExtended:
             "name": "Google User",
         }
 
-        with patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute, patch.object(
-            UserService, "get_user_by_email", return_value=None
-        ), patch.object(db_session, "add"), patch.object(db_session, "commit", new_callable=AsyncMock), patch.object(
-            db_session, "refresh", new_callable=AsyncMock
+        with (
+            patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute,
+            patch.object(UserService, "get_user_by_email", return_value=None),
+            patch.object(db_session, "add"),
+            patch.object(db_session, "commit", new_callable=AsyncMock),
+            patch.object(db_session, "refresh", new_callable=AsyncMock),
         ):
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = None
             mock_execute.return_value = mock_result
 
-            with patch("app.services.user_service.User") as mock_user_class:
-                mock_user = MagicMock()
-                mock_user.id = 1
-                mock_user.auth_method = AuthMethod.GOOGLE
-                mock_user_class.return_value = mock_user
+            user = await UserService.sync_user_from_auth0(db_session, auth0_userinfo)
 
-                user = await UserService.sync_user_from_auth0(db_session, auth0_userinfo)
-
-                assert user is not None
-
+            assert user is not None
+            assert user.auth_method == AuthMethod.GOOGLE

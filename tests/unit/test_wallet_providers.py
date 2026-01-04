@@ -47,8 +47,9 @@ class TestPrivyWalletProvider:
     async def test_initialize_missing_app_id(self, privy_provider):
         """Test initialization with missing app_id."""
         privy_provider.config.app_id = ""
+        from app.services.providers.exceptions import ExternalServiceError
 
-        with pytest.raises(ValueError, match="Privy app_id is required"):
+        with pytest.raises(ExternalServiceError, match="privy initialization failed"):
             await privy_provider.initialize()
 
     @pytest.mark.asyncio
@@ -142,8 +143,9 @@ class TestDynamicWalletProvider:
     async def test_initialize_missing_api_key(self, dynamic_provider):
         """Test initialization with missing api_key."""
         dynamic_provider.config.api_key = ""
+        from app.services.providers.exceptions import ExternalServiceError
 
-        with pytest.raises(ValueError, match="Dynamic api_key is required"):
+        with pytest.raises(ExternalServiceError, match="dynamic initialization failed"):
             await dynamic_provider.initialize()
 
     @pytest.mark.asyncio

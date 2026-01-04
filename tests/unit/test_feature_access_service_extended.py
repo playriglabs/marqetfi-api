@@ -89,7 +89,9 @@ class TestFeatureAccessServiceExtended:
         assert FeatureAccessService.check_feature_access(external_user, "open_trade") is True
         assert FeatureAccessService.check_feature_access(external_user, "close_trade") is True
         assert FeatureAccessService.check_feature_access(external_user, "update_tp_sl") is True
-        assert FeatureAccessService.check_feature_access(external_user, "position_management") is True
+        assert (
+            FeatureAccessService.check_feature_access(external_user, "position_management") is True
+        )
 
     def test_check_feature_access_unknown_feature(self, mpc_user):
         """Test checking access to unknown feature."""
@@ -113,7 +115,9 @@ class TestFeatureAccessServiceExtended:
         """Test requires_confirmation for external wallet user."""
         assert FeatureAccessService.requires_confirmation(external_user, "open_trade") is True
         assert FeatureAccessService.requires_confirmation(external_user, "close_trade") is True
-        assert FeatureAccessService.requires_confirmation(external_user, "batch_operations") is False
+        assert (
+            FeatureAccessService.requires_confirmation(external_user, "batch_operations") is False
+        )
 
     def test_requires_confirmation_mpc_user(self, mpc_user):
         """Test requires_confirmation for MPC wallet user."""
@@ -124,4 +128,3 @@ class TestFeatureAccessServiceExtended:
         assert FeatureAccessService.require_mpc_wallet(mpc_user) is True
         assert FeatureAccessService.require_mpc_wallet(external_user) is False
         assert FeatureAccessService.require_mpc_wallet(web2_user) is False
-

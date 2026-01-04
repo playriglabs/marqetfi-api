@@ -171,7 +171,7 @@ class TestPrivyClientExtended:
         """Test error handling for authentication error."""
         from app.services.wallet_providers.privy.client import AuthenticationError
 
-        error = AuthenticationError("Authentication failed")
+        error = AuthenticationError("Authentication failed", response=MagicMock(), body=None)
 
         with pytest.raises(PrivyAuthenticationError):
             privy_client._handle_error(error)
@@ -181,7 +181,7 @@ class TestPrivyClientExtended:
         """Test error handling for rate limit error."""
         from app.services.wallet_providers.privy.client import RateLimitError
 
-        error = RateLimitError("Rate limit exceeded")
+        error = RateLimitError("Rate limit exceeded", response=MagicMock(), body=None)
 
         with pytest.raises(PrivyRateLimitError):
             privy_client._handle_error(error)
@@ -191,7 +191,7 @@ class TestPrivyClientExtended:
         """Test error handling for connection error."""
         from app.services.wallet_providers.privy.client import APIConnectionError
 
-        error = APIConnectionError("Connection failed")
+        error = APIConnectionError(message="Connection failed", request=MagicMock())
 
         with pytest.raises(PrivyAPIError):
             privy_client._handle_error(error)
@@ -201,7 +201,7 @@ class TestPrivyClientExtended:
         """Test error handling for API status error."""
         from app.services.wallet_providers.privy.client import APIStatusError
 
-        error = APIStatusError("API error")
+        error = APIStatusError("API error", response=MagicMock(), body=None)
         error.status_code = 500
 
         with pytest.raises(PrivyAPIError):
@@ -232,6 +232,7 @@ class TestPrivyClientExtended:
         mock_wallet.address = "0x123"
         mock_wallet.chain_type = "ethereum"
         mock_wallet.owner = "user_123"
+        del mock_wallet.to_dict
 
         with patch.object(privy_client, "_get_client") as mock_get_client:
             mock_sdk_client = MagicMock()

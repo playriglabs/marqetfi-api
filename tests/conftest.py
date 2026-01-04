@@ -149,8 +149,12 @@ def mock_auth_provider():
     from app.services.providers.base import BaseAuthProvider
 
     mock_provider = MagicMock(spec=BaseAuthProvider)
-    mock_provider.authenticate = AsyncMock(return_value={"user_id": "123", "email": "test@example.com"})
-    mock_provider.get_user_info = AsyncMock(return_value={"user_id": "123", "email": "test@example.com"})
+    mock_provider.authenticate = AsyncMock(
+        return_value={"user_id": "123", "email": "test@example.com"}
+    )
+    mock_provider.get_user_info = AsyncMock(
+        return_value={"user_id": "123", "email": "test@example.com"}
+    )
     mock_provider.verify_token = AsyncMock(return_value=True)
     mock_provider.initialize = AsyncMock()
     return mock_provider
@@ -175,3 +179,52 @@ def sample_ostium_wallet():
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
+
+
+# Helper fixtures for dependency overrides
+@pytest.fixture
+def override_user_dependencies(sample_user):
+    """Helper to override user authentication dependencies."""
+    from app.api.dependencies import get_current_active_user, get_current_user
+    from app.main import app
+
+    async def override_get_current_user():
+        return sample_user
+
+    async def override_get_current_active_user():
+        return sample_user
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+
+    yield
+
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_active_user, None)
+
+
+@pytest.fixture
+def override_admin_dependencies(mock_admin_user):
+    """Helper to override admin authentication dependencies."""
+    from app.api.dependencies import get_current_admin_user, get_current_user
+    from app.main import app
+
+    async def override_get_current_user():
+        return {"id": mock_admin_user["id"]}
+
+    async def override_get_current_admin_user():
+        return mock_admin_user
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
+
+    yield
+
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_admin_user, None)
+
+
+@pytest.fixture
+def mock_admin_user():
+    """Create mock admin user dict."""
+    return {"id": 1, "email": "admin@example.com", "is_admin": True, "is_superuser": True}

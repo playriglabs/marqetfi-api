@@ -1,5 +1,6 @@
 """Lighter trading provider implementation."""
 
+import asyncio
 from typing import Any
 
 from app.config.providers.lighter import LighterConfig
@@ -51,8 +52,6 @@ class LighterTradingProvider(BaseTradingProvider):
 
             await self.lighter_service.initialize()
 
-            import asyncio
-
             # Get OrderApi from Lighter SDK
             order_api = lighter.OrderApi(self.lighter_service.client)
 
@@ -84,9 +83,7 @@ class LighterTradingProvider(BaseTradingProvider):
         try:
             await self.lighter_service.initialize()
 
-            import asyncio
-
-            import lighter
+            # Removed redundant local imports
 
             order_api = lighter.OrderApi(self.lighter_service.client)
 
@@ -129,9 +126,7 @@ class LighterTradingProvider(BaseTradingProvider):
         try:
             await self.lighter_service.initialize()
 
-            import asyncio
-
-            import lighter
+            # Removed redundant local imports
 
             account_api = lighter.AccountApi(self.lighter_service.client)
 
@@ -163,9 +158,7 @@ class LighterTradingProvider(BaseTradingProvider):
         try:
             await self.lighter_service.initialize()
 
-            import asyncio
-
-            import lighter
+            # Removed redundant local imports
 
             order_api = lighter.OrderApi(self.lighter_service.client)
 
@@ -183,9 +176,7 @@ class LighterTradingProvider(BaseTradingProvider):
         try:
             await self.lighter_service.initialize()
 
-            import asyncio
-
-            import lighter
+            # Removed redundant local imports
 
             order_api = lighter.OrderApi(self.lighter_service.client)
 
@@ -209,9 +200,7 @@ class LighterTradingProvider(BaseTradingProvider):
         try:
             await self.lighter_service.initialize()
 
-            import asyncio
-
-            import lighter
+            # Removed redundant local imports
 
             order_api = lighter.OrderApi(self.lighter_service.client)
 
@@ -235,9 +224,7 @@ class LighterTradingProvider(BaseTradingProvider):
         try:
             await self.lighter_service.initialize()
 
-            import asyncio
-
-            import lighter
+            # Removed redundant local imports
 
             # Get markets/pairs from Lighter API
             # This is a placeholder - adjust based on actual API

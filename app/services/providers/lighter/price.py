@@ -67,7 +67,7 @@ class LighterPriceProvider(BasePriceProvider):
 
             import asyncio
 
-            import lighter
+            # Removed redundant local import of lighter
 
             results: dict[str, tuple[float, int, str]] = {}
             market_api = lighter.MarketApi(self.lighter_service.client)  # type: ignore[attr-defined]
@@ -106,8 +106,6 @@ class LighterPriceProvider(BasePriceProvider):
             await self.lighter_service.initialize()
 
             import asyncio
-
-            import lighter
 
             market_api = lighter.MarketApi(self.lighter_service.client)  # type: ignore[attr-defined]
             markets = await asyncio.to_thread(market_api.get_markets)

@@ -286,8 +286,8 @@ class OstiumAdminService:
             "is_active": settings.is_active,
             "version": settings.version,
             "created_by": settings.created_by,
-            "created_at": settings.created_at.isoformat(),
-            "updated_at": settings.updated_at.isoformat(),
+            "created_at": settings.created_at.isoformat() if settings.created_at else None,
+            "updated_at": settings.updated_at.isoformat() if settings.updated_at else None,
         }
 
         if include_private_key and settings.private_key_encrypted:

@@ -29,6 +29,17 @@ class ProviderRouter:
         """Configure default provider for a category."""
         self._category_provider_map[category.lower()] = provider.lower()
 
+    def get_provider_for_category(self, category: str) -> str | None:
+        """Get provider for a category.
+
+        Args:
+            category: Category name
+
+        Returns:
+            Provider name or None if not configured
+        """
+        return self._category_provider_map.get(category.lower())
+
     def configure_asset_provider(self, asset: str, provider: str) -> None:
         """Configure direct asset-to-provider mapping (overrides category)."""
         self._asset_provider_map[asset.upper()] = provider.lower()
@@ -37,19 +48,18 @@ class ProviderRouter:
         """Get category for an asset."""
         asset_upper = asset.upper()
 
-        # Check direct mapping first
+        # Check category map first (explicit category configuration takes precedence)
+        if asset_upper in self._asset_category_map:
+            return self._asset_category_map[asset_upper]
+
+        # If no explicit category, infer from provider mapping
         if asset_upper in self._asset_provider_map:
-            # Infer category from provider if needed
             provider = self._asset_provider_map[asset_upper]
             if provider == "lighter":
                 return "crypto"
             elif provider == "ostium":
                 # Could be any trad-fi category
                 return "tradfi"
-
-        # Check category map
-        if asset_upper in self._asset_category_map:
-            return self._asset_category_map[asset_upper]
 
         # Default: try to infer from common patterns
         crypto_assets = {"BTC", "ETH", "SOL", "AVAX", "MATIC", "ARB", "OP"}
@@ -59,8 +69,16 @@ class ProviderRouter:
         # Default to tradfi for unknown assets
         return "tradfi"
 
-    def get_provider_for_asset(self, asset: str) -> str:
-        """Get provider name for an asset."""
+    def get_provider_for_asset(self, asset: str, default: str | None = None) -> str:
+        """Get provider name for an asset.
+
+        Args:
+            asset: Asset symbol
+            default: Optional default provider if not found
+
+        Returns:
+            Provider name
+        """
         asset_upper = asset.upper()
 
         # Direct mapping takes precedence
@@ -72,17 +90,27 @@ class ProviderRouter:
         if category in self._category_provider_map:
             return self._category_provider_map[category]
 
-        # Default fallback
-        return "ostium"
+        # Use provided default or fallback to ostium
+        return default if default is not None else "ostium"
 
     def get_provider_for_asset_type(self, asset_type: int) -> str:
         """Get provider for numeric asset type (Ostium format)."""
         # Ostium asset types: 0=BTC, 1=ETH, etc.
-        # Map crypto asset types to lighter, others to ostium
-        # This is a placeholder - adjust based on actual asset type mapping
+        # Map crypto asset types to category, then get provider from category
         crypto_asset_types = {0, 1}  # BTC, ETH typically
         if asset_type in crypto_asset_types:
+            category = "crypto"
+            # Check if category has a configured provider
+            provider = self.get_provider_for_category(category)
+            if provider:
+                return provider
+            # Default for crypto if not configured
             return "lighter"
+        # Default for non-crypto
+        category = "tradfi"
+        provider = self.get_provider_for_category(category)
+        if provider:
+            return provider
         return "ostium"
 
     async def get_trading_provider(
@@ -91,21 +119,33 @@ class ProviderRouter:
         """Get trading provider for asset or asset type."""
         if asset:
             provider_name = self.get_provider_for_asset(asset)
+            return await ProviderFactory.get_trading_provider(provider_name)
         elif asset_type is not None:
             provider_name = self.get_provider_for_asset_type(asset_type)
+            return await ProviderFactory.get_trading_provider(provider_name)
         else:
-            # Fallback to default
+            # Get default from settings
             from app.config import get_settings
 
             settings = get_settings()
-            provider_name = getattr(settings, "TRADING_PROVIDER", "ostium")
+            default_provider = getattr(settings, "TRADING_PROVIDER", "ostium")
+            return await ProviderFactory.get_trading_provider(default_provider)
 
-        return await ProviderFactory.get_trading_provider(provider_name)
+    async def get_price_provider(self, asset: str | None = None) -> BasePriceProvider:
+        """Get price provider for an asset.
 
-    async def get_price_provider(self, asset: str) -> BasePriceProvider:
-        """Get price provider for an asset."""
-        provider_name = self.get_provider_for_asset(asset)
-        return await ProviderFactory.get_price_provider(provider_name)
+        Args:
+            asset: Optional asset symbol. If None, uses default provider.
+
+        Returns:
+            Price provider instance
+        """
+        if asset:
+            provider_name = self.get_provider_for_asset(asset)
+            return await ProviderFactory.get_price_provider(provider_name)
+        else:
+            # Pass None to factory to let it handle default
+            return await ProviderFactory.get_price_provider(None)
 
     async def get_settlement_provider(
         self, asset: str | None = None, asset_type: int | None = None
@@ -113,15 +153,17 @@ class ProviderRouter:
         """Get settlement provider for asset or asset type."""
         if asset:
             provider_name = self.get_provider_for_asset(asset)
+            return await ProviderFactory.get_settlement_provider(provider_name)
         elif asset_type is not None:
             provider_name = self.get_provider_for_asset_type(asset_type)
+            return await ProviderFactory.get_settlement_provider(provider_name)
         else:
+            # Get default from settings
             from app.config import get_settings
 
             settings = get_settings()
-            provider_name = getattr(settings, "SETTLEMENT_PROVIDER", "ostium")
-
-        return await ProviderFactory.get_settlement_provider(provider_name)
+            default_provider = getattr(settings, "SETTLEMENT_PROVIDER", "ostium")
+            return await ProviderFactory.get_settlement_provider(default_provider)
 
 
 # Global router instance

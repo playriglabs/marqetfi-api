@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_admin_user, get_db
+from app.api.dependencies import get_current_admin_user, get_current_user
 from app.main import app
 from app.services.configuration_admin_service import ConfigurationAdminService
 
@@ -36,8 +36,12 @@ class TestAdminAPI:
         """Create mock configuration admin service."""
         service = MagicMock(spec=ConfigurationAdminService)
         service.config_to_dict = MagicMock(return_value={"id": 1, "key": "test", "value": "value"})
-        service.create_app_config = AsyncMock(return_value=MagicMock(id=1, key="test", value="value"))
-        service.update_app_config = AsyncMock(return_value=MagicMock(id=1, key="test", value="updated"))
+        service.create_app_config = AsyncMock(
+            return_value=MagicMock(id=1, key="test", value="value")
+        )
+        service.update_app_config = AsyncMock(
+            return_value=MagicMock(id=1, key="test", value="updated")
+        )
         service.create_provider_config = AsyncMock(
             return_value=MagicMock(
                 id=1,
@@ -70,16 +74,33 @@ class TestAdminAPI:
         """Test successful app config listing."""
         from app.api.v1.admin.configuration import AppConfigurationRepository
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch.object(AppConfigurationRepository, "get_all_active", new_callable=AsyncMock) as mock_repo:
+            with patch.object(
+                AppConfigurationRepository, "get_all_active", new_callable=AsyncMock
+            ) as mock_repo:
+                from datetime import datetime
+
                 mock_config = MagicMock()
                 mock_config.id = 1
-                mock_config.key = "test"
-                mock_config.value = "value"
+                mock_config.config_key = "test"
+                mock_config.config_value = "value"
+                mock_config.config_type = "string"
                 mock_config.category = "general"
+                mock_config.description = "Test config"
+                mock_config.is_encrypted = False
                 mock_config.is_active = True
+                mock_config.created_by = 1
+                mock_config.created_at = datetime.now()
+                mock_config.updated_at = datetime.now()
                 mock_repo.return_value = [mock_config]
 
                 response = client.get(
@@ -97,14 +118,33 @@ class TestAdminAPI:
         """Test successful app config retrieval."""
         from app.api.v1.admin.configuration import AppConfigurationRepository
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch.object(AppConfigurationRepository, "get", new_callable=AsyncMock) as mock_repo:
+            with patch.object(
+                AppConfigurationRepository, "get", new_callable=AsyncMock
+            ) as mock_repo:
+                from datetime import datetime
+
                 mock_config = MagicMock()
                 mock_config.id = 1
-                mock_config.key = "test"
-                mock_config.value = "value"
+                mock_config.config_key = "test"
+                mock_config.config_value = "value"
+                mock_config.config_type = "string"
+                mock_config.category = "general"
+                mock_config.description = "Test config"
+                mock_config.is_encrypted = False
+                mock_config.is_active = True
+                mock_config.created_by = 1
+                mock_config.created_at = datetime.now()
+                mock_config.updated_at = datetime.now()
                 mock_repo.return_value = mock_config
 
                 response = client.get(
@@ -122,10 +162,19 @@ class TestAdminAPI:
         """Test app config retrieval when not found."""
         from app.api.v1.admin.configuration import AppConfigurationRepository
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch.object(AppConfigurationRepository, "get", new_callable=AsyncMock, return_value=None):
+            with patch.object(
+                AppConfigurationRepository, "get", new_callable=AsyncMock, return_value=None
+            ):
                 response = client.get(
                     "/api/v1/admin/config/app-configs/999",
                     headers={"Authorization": "Bearer admin_token"},
@@ -135,17 +184,68 @@ class TestAdminAPI:
         finally:
             app.dependency_overrides.clear()
 
-    def test_create_app_config_success(self, client, mock_admin_user, mock_config_service, db_session):
+    def test_create_app_config_success(
+        self, client, mock_admin_user, mock_config_service, db_session
+    ):
         """Test successful app config creation."""
-        from app.api.v1.admin.configuration import ConfigurationAdminService
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch("app.api.v1.admin.configuration.ConfigurationAdminService", return_value=mock_config_service):
+            from datetime import datetime
+
+            mock_created_config = MagicMock()
+            mock_created_config.id = 1
+            mock_created_config.config_key = "test"
+            mock_created_config.config_value = "value"
+            mock_created_config.config_type = "string"
+            mock_created_config.category = "general"
+            mock_created_config.description = "Test config"
+            mock_created_config.is_encrypted = False
+            mock_created_config.is_active = True
+            mock_created_config.created_by = 1
+            mock_created_config.created_at = datetime.now()
+            mock_created_config.updated_at = datetime.now()
+
+            mock_config_service.create_app_config = AsyncMock(return_value=mock_created_config)
+            mock_config_service.config_to_dict = MagicMock(
+                return_value={
+                    "id": 1,
+                    "config_key": "test",
+                    "config_value": "value",
+                    "config_type": "string",
+                    "category": "general",
+                    "description": "Test config",
+                    "is_encrypted": False,
+                    "is_active": True,
+                    "created_by": 1,
+                    "created_at": datetime.now(),
+                    "updated_at": datetime.now(),
+                }
+            )
+
+            with patch(
+                "app.api.v1.admin.configuration.ConfigurationAdminService",
+                return_value=mock_config_service,
+            ):
                 response = client.post(
                     "/api/v1/admin/config/app-configs",
-                    json={"key": "test", "value": "value", "category": "general"},
+                    json={
+                        "config_key": "test",
+                        "config_value": "value",
+                        "config_type": "string",
+                        "category": "general",
+                        "description": "Test config",
+                        "is_encrypted": False,
+                        "is_active": True,
+                    },
                     headers={"Authorization": "Bearer admin_token"},
                 )
 
@@ -159,10 +259,21 @@ class TestAdminAPI:
         """Test successful provider config listing."""
         from app.api.v1.admin.configuration import ProviderConfigurationRepository
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch.object(ProviderConfigurationRepository, "get_all", new_callable=AsyncMock) as mock_repo:
+            with patch.object(
+                ProviderConfigurationRepository, "get_all", new_callable=AsyncMock
+            ) as mock_repo:
+                from datetime import datetime
+
                 mock_config = MagicMock()
                 mock_config.id = 1
                 mock_config.provider_name = "ostium"
@@ -171,8 +282,8 @@ class TestAdminAPI:
                 mock_config.is_active = True
                 mock_config.version = 1
                 mock_config.created_by = 1
-                mock_config.created_at = None
-                mock_config.updated_at = None
+                mock_config.created_at = datetime.now()
+                mock_config.updated_at = datetime.now()
                 mock_repo.return_value = [mock_config]
 
                 response = client.get(
@@ -186,14 +297,42 @@ class TestAdminAPI:
         finally:
             app.dependency_overrides.clear()
 
-    def test_activate_provider_config_success(self, client, mock_admin_user, mock_config_service, db_session):
+    def test_activate_provider_config_success(
+        self, client, mock_admin_user, mock_config_service, db_session
+    ):
         """Test successful provider config activation."""
-        from app.api.v1.admin.configuration import ConfigurationAdminService
 
-        app.dependency_overrides[get_current_admin_user] = lambda: mock_admin_user
+        async def override_get_current_user():
+            return {"id": mock_admin_user["id"]}
+
+        async def override_get_current_admin_user():
+            return mock_admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
 
         try:
-            with patch("app.api.v1.admin.configuration.ConfigurationAdminService", return_value=mock_config_service):
+            from datetime import datetime
+
+            mock_activated_config = MagicMock()
+            mock_activated_config.id = 1
+            mock_activated_config.provider_name = "ostium"
+            mock_activated_config.provider_type = "trading"
+            mock_activated_config.config_data = {}
+            mock_activated_config.is_active = True
+            mock_activated_config.version = 1
+            mock_activated_config.created_by = 1
+            mock_activated_config.created_at = datetime.now()
+            mock_activated_config.updated_at = datetime.now()
+
+            mock_config_service.activate_provider_config = AsyncMock(
+                return_value=mock_activated_config
+            )
+
+            with patch(
+                "app.api.v1.admin.configuration.ConfigurationAdminService",
+                return_value=mock_config_service,
+            ):
                 response = client.post(
                     "/api/v1/admin/config/provider-configs/1/activate",
                     headers={"Authorization": "Bearer admin_token"},
@@ -204,4 +343,3 @@ class TestAdminAPI:
                 assert data["is_active"] is True
         finally:
             app.dependency_overrides.clear()
-

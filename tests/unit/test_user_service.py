@@ -155,7 +155,9 @@ class TestUserService:
         with patch("app.services.user_service.verify_password") as mock_verify:
             mock_verify.return_value = False
 
-            result = await UserService.authenticate_user(mock_db, "test@example.com", "wrong_password")
+            result = await UserService.authenticate_user(
+                mock_db, "test@example.com", "wrong_password"
+            )
 
             assert result is None
             mock_verify.assert_called_once()
@@ -327,4 +329,3 @@ class TestUserService:
         result = await UserService.sync_user_from_auth0(mock_db, auth0_userinfo)
 
         assert result.username == "user"
-

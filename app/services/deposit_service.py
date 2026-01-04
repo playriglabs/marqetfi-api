@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.deposit import Deposit, TokenSwap
 from app.repositories.deposit_repository import DepositRepository, TokenSwapRepository
 from app.services.providers.factory import ProviderFactory
@@ -67,7 +68,7 @@ class DepositService:
 
         if swap_needed:
             # Mark as processing and trigger swap
-            await self.deposit_repo.update(
+            deposit = await self.deposit_repo.update(
                 self.db,
                 deposit,
                 {"status": "processing"},
@@ -78,7 +79,7 @@ class DepositService:
                 await self.execute_automatic_swap(deposit, provider)
             except Exception:
                 # Log error and mark deposit as failed
-                await self.deposit_repo.update(
+                deposit = await self.deposit_repo.update(
                     self.db,
                     deposit,
                     {"status": "failed"},
@@ -86,7 +87,7 @@ class DepositService:
                 raise
         else:
             # No swap needed, mark as completed
-            await self.deposit_repo.update(
+            deposit = await self.deposit_repo.update(
                 self.db,
                 deposit,
                 {"status": "completed"},
@@ -107,10 +108,7 @@ class DepositService:
         Returns:
             True if swap is needed, False otherwise
         """
-        # Get provider-specific config
-        from app.config import get_settings
-        from app.services.providers.factory import ProviderFactory
-
+        settings = get_settings()  # Get settings early for fallback
         try:
             if provider == "ostium":
                 config = await ProviderFactory._get_provider_config("ostium")
@@ -124,8 +122,7 @@ class DepositService:
                 # Unknown provider, assume no swap needed
                 return False
         except Exception:
-            # If config loading fails, use defaults from settings
-            settings = get_settings()
+            # If config loading fails, use defaults from settings (already loaded above)
             if provider == "ostium":
                 required_token = getattr(settings, "ostium_required_token", "USDC")
                 required_chain = getattr(settings, "ostium_required_chain", "arbitrum")
@@ -151,10 +148,7 @@ class DepositService:
         Returns:
             Created token swap record
         """
-        # Get provider requirements
-        from app.config import get_settings
-        from app.services.providers.factory import ProviderFactory
-
+        settings = get_settings()  # Get settings early for fallback
         try:
             if provider == "ostium":
                 config = await ProviderFactory._get_provider_config("ostium")

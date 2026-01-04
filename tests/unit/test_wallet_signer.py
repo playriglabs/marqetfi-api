@@ -31,14 +31,14 @@ class TestWalletSigner:
     @pytest.mark.asyncio
     async def test_sign_transaction_private_key(self, wallet_signer_private_key, private_key):
         """Test signing transaction with private key."""
-        account = Account.from_key(private_key)
         transaction = {
-            "to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+            "to": Account.create().address,
             "value": 1000000000000000000,
             "gas": 21000,
             "gasPrice": 20000000000,
             "nonce": 0,
             "chainId": 1,
+            "data": "0x",
         }
 
         result = await wallet_signer_private_key.sign_transaction(transaction)
@@ -56,7 +56,7 @@ class TestWalletSigner:
             "app.core.wallet_signer.WalletProviderFactory.get_provider", return_value=mock_provider
         ):
             transaction = {
-                "to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+                "to": Account.create().address,
                 "value": 1000000000000000000,
             }
 
@@ -76,12 +76,13 @@ class TestWalletSigner:
             "app.core.wallet_signer.WalletProviderFactory.get_provider", return_value=mock_provider
         ):
             transaction = {
-                "to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+                "to": Account.create().address,
                 "value": 1000000000000000000,
                 "gas": 21000,
                 "gasPrice": 20000000000,
                 "nonce": 0,
                 "chainId": 1,
+                "data": "0x",
             }
 
             result = await wallet_signer_provider.sign_transaction(transaction)

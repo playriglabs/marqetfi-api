@@ -133,4 +133,3 @@ class TestSettlementService:
         service = SettlementService()
         with pytest.raises(ValueError, match="Settlement provider not configured"):
             await service.get_transaction_status("0x123")
-

@@ -1,6 +1,6 @@
 """Test price API endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -119,4 +119,3 @@ class TestPriceAPI:
             assert response.status_code == 500
         finally:
             app.dependency_overrides.clear()
-

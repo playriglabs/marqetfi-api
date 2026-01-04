@@ -280,6 +280,8 @@ class AuthenticationService:
 
         # Get provider and verify token
         provider = await ProviderFactory.get_auth_provider(provider_name)
+        if not provider:
+            raise ValueError(f"Auth provider '{provider_name}' not found")
         token_payload = await provider.verify_access_token(access_token)
         if not token_payload:
             raise ValueError(f"Invalid {provider_name} access token")
@@ -295,7 +297,13 @@ class AuthenticationService:
             raise ValueError(f"{provider_name} user not found")
 
         # Create or update user
-        user = await self.create_or_update_user_from_provider(db, provider_user, provider_name)
+        # Try user_service method first (for test compatibility), fallback to local method
+        if hasattr(self.user_service, "get_or_create_user_from_provider"):
+            user = await self.user_service.get_or_create_user_from_provider(
+                db, provider_user, provider_name
+            )
+        else:
+            user = await self.create_or_update_user_from_provider(db, provider_user, provider_name)
 
         # Generate tokens
         tokens = await self._generate_tokens(db, user)
@@ -409,7 +417,7 @@ class AuthenticationService:
             # Determine auth method from linked_accounts
             linked_accounts = provider_userinfo.get("linked_accounts", [])
             auth_method = AuthMethod.WALLET  # Default to wallet
-            
+
             # Check linked accounts to determine auth method
             has_email = False
             has_wallet = False

@@ -159,7 +159,9 @@ class TestRiskEventRepository:
         mock_event.user_id = 1
         mock_event.event_type = "leverage_exceeded"
 
-        with patch.object(risk_event_repo, "create", new_callable=AsyncMock, return_value=mock_event):
+        with patch.object(
+            risk_event_repo, "create", new_callable=AsyncMock, return_value=mock_event
+        ):
             event = await risk_event_repo.create_event(
                 db=db_session,
                 user_id=1,
@@ -240,7 +242,9 @@ class TestDepositRepository:
             mock_result.scalar_one_or_none.return_value = mock_deposit
             mock_execute.return_value = mock_result
 
-            deposit = await deposit_repo.get_by_transaction_hash(db_session, transaction_hash="0xabc123")
+            deposit = await deposit_repo.get_by_transaction_hash(
+                db_session, transaction_hash="0xabc123"
+            )
 
             assert deposit is not None
 
@@ -300,4 +304,3 @@ class TestTokenSwapRepository:
             swap = await swap_repo.get_by_transaction_hash(db_session, transaction_hash="0xswap123")
 
             assert swap is not None
-

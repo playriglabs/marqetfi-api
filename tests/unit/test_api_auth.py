@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_active_user, get_db
+from app.api.dependencies import get_current_active_user, get_current_user
 from app.main import app
 from app.models.user import User
 from app.services.auth_service import AuthenticationService
@@ -146,7 +146,15 @@ class TestAuthAPI:
 
     def test_logout_success(self, client, sample_user):
         """Test successful logout."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
         try:
             response = client.post(
@@ -159,4 +167,3 @@ class TestAuthAPI:
             assert "message" in data
         finally:
             app.dependency_overrides.clear()
-

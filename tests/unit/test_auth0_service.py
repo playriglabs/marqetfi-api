@@ -26,9 +26,11 @@ class TestAuth0Service:
     @pytest.mark.asyncio
     async def test_register_user_success(self, auth0_service):
         """Test successful user registration."""
-        with patch("app.services.auth0_service.GetToken") as mock_get_token, patch(
-            "app.services.auth0_service.Auth0"
-        ) as mock_auth0_class, patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with (
+            patch("app.services.auth0_service.GetToken") as mock_get_token,
+            patch("app.services.auth0_service.Auth0") as mock_auth0_class,
+            patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+        ):
             mock_token = MagicMock()
             mock_token.client_credentials = MagicMock(return_value={"access_token": "mgmt_token"})
             mock_get_token.return_value = mock_token
@@ -47,15 +49,19 @@ class TestAuth0Service:
     @pytest.mark.asyncio
     async def test_get_user_by_id_success(self, auth0_service):
         """Test successful user retrieval by ID."""
-        with patch("app.services.auth0_service.GetToken") as mock_get_token, patch(
-            "app.services.auth0_service.Auth0"
-        ) as mock_auth0_class, patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with (
+            patch("app.services.auth0_service.GetToken") as mock_get_token,
+            patch("app.services.auth0_service.Auth0") as mock_auth0_class,
+            patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+        ):
             mock_token = MagicMock()
             mock_token.client_credentials = MagicMock(return_value={"access_token": "mgmt_token"})
             mock_get_token.return_value = mock_token
 
             mock_management_api = MagicMock()
-            mock_management_api.users.get = MagicMock(return_value={"user_id": "auth0_123", "email": "test@example.com"})
+            mock_management_api.users.get = MagicMock(
+                return_value={"user_id": "auth0_123", "email": "test@example.com"}
+            )
             mock_auth0_class.return_value = mock_management_api
             mock_to_thread.return_value = {"user_id": "auth0_123", "email": "test@example.com"}
 
@@ -67,17 +73,25 @@ class TestAuth0Service:
     @pytest.mark.asyncio
     async def test_get_user_by_id_not_found(self, auth0_service):
         """Test user retrieval when not found."""
-        with patch("app.services.auth0_service.GetToken") as mock_get_token, patch(
-            "app.services.auth0_service.Auth0"
-        ) as mock_auth0_class, patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with (
+            patch("app.services.auth0_service.GetToken") as mock_get_token,
+            patch("app.services.auth0_service.Auth0") as mock_auth0_class,
+            patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+        ):
             mock_token = MagicMock()
             mock_token.client_credentials = MagicMock(return_value={"access_token": "mgmt_token"})
             mock_get_token.return_value = mock_token
 
             mock_management_api = MagicMock()
-            mock_management_api.users.get = MagicMock(side_effect=Auth0Error(status_code=404, error_code="not_found", message="User not found"))
+            mock_management_api.users.get = MagicMock(
+                side_effect=Auth0Error(
+                    status_code=404, error_code="not_found", message="User not found"
+                )
+            )
             mock_auth0_class.return_value = mock_management_api
-            mock_to_thread.side_effect = Auth0Error(status_code=404, error_code="not_found", message="User not found")
+            mock_to_thread.side_effect = Auth0Error(
+                status_code=404, error_code="not_found", message="User not found"
+            )
 
             result = await auth0_service.get_user_by_id("invalid_id")
 
@@ -86,9 +100,11 @@ class TestAuth0Service:
     @pytest.mark.asyncio
     async def test_get_user_by_email_success(self, auth0_service):
         """Test successful user retrieval by email."""
-        with patch("app.services.auth0_service.GetToken") as mock_get_token, patch(
-            "app.services.auth0_service.Auth0"
-        ) as mock_auth0_class, patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with (
+            patch("app.services.auth0_service.GetToken") as mock_get_token,
+            patch("app.services.auth0_service.Auth0") as mock_auth0_class,
+            patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+        ):
             mock_token = MagicMock()
             mock_token.client_credentials = MagicMock(return_value={"access_token": "mgmt_token"})
             mock_get_token.return_value = mock_token
@@ -118,28 +134,42 @@ class TestAuth0Service:
     @pytest.mark.asyncio
     async def test_exchange_code_for_tokens_success(self, auth0_service):
         """Test successful code exchange for tokens."""
-        with patch("app.services.auth0_service.GetToken") as mock_get_token, patch(
-            "asyncio.to_thread", new_callable=AsyncMock
-        ) as mock_to_thread:
+        with (
+            patch("app.services.auth0_service.GetToken") as mock_get_token,
+            patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+        ):
             mock_token = MagicMock()
             mock_token.authorization_code = MagicMock(
-                return_value={"access_token": "token", "refresh_token": "refresh", "expires_in": 3600}
+                return_value={
+                    "access_token": "token",
+                    "refresh_token": "refresh",
+                    "expires_in": 3600,
+                }
             )
             mock_get_token.return_value = mock_token
-            mock_to_thread.return_value = {"access_token": "token", "refresh_token": "refresh", "expires_in": 3600}
+            mock_to_thread.return_value = {
+                "access_token": "token",
+                "refresh_token": "refresh",
+                "expires_in": 3600,
+            }
 
-            result = await auth0_service.exchange_code_for_tokens(code="auth_code", redirect_uri="https://app.com/callback")
+            result = await auth0_service.exchange_code_for_tokens(
+                code="auth_code", redirect_uri="https://app.com/callback"
+            )
 
             assert "access_token" in result
 
     @pytest.mark.asyncio
     async def test_get_userinfo_success(self, auth0_service):
         """Test successful userinfo retrieval."""
-        with patch("app.services.auth0_service.GetToken") as mock_get_token, patch(
-            "asyncio.to_thread", new_callable=AsyncMock
-        ) as mock_to_thread:
+        with (
+            patch("app.services.auth0_service.GetToken") as mock_get_token,
+            patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+        ):
             mock_token = MagicMock()
-            mock_token.user_info = MagicMock(return_value={"sub": "auth0_123", "email": "test@example.com"})
+            mock_token.user_info = MagicMock(
+                return_value={"sub": "auth0_123", "email": "test@example.com"}
+            )
             mock_get_token.return_value = mock_token
             mock_to_thread.return_value = {"sub": "auth0_123", "email": "test@example.com"}
 
@@ -147,4 +177,3 @@ class TestAuth0Service:
 
             assert "sub" in result
             assert result["email"] == "test@example.com"
-

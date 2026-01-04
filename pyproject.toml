@@ -107,6 +107,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "-v",
+    "-n=auto",
     "--strict-markers",
     "--strict-config",
     "--cov=app",

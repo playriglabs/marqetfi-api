@@ -142,10 +142,15 @@ class TestPrivyClient:
     async def test_create_wallet_success(self, privy_client):
         """Test successful wallet creation."""
         mock_wallet = MagicMock()
+        mock_wallet.to_dict.return_value = {
+            "id": "wallet_123",
+            "address": "0x123",
+            "chain_type": "ethereum",
+        }
         mock_wallet.id = "wallet_123"
         mock_wallet.address = "0x123"
 
-        with patch.object(privy_client, "_get_client") as mock_get_client:
+        with patch.object(privy_client, "_get_client", new_callable=AsyncMock) as mock_get_client:
             mock_sdk_client = MagicMock()
             mock_sdk_client.wallets.create = AsyncMock(return_value=mock_wallet)
             mock_get_client.return_value = mock_sdk_client
@@ -158,11 +163,11 @@ class TestPrivyClient:
     async def test_sign_transaction_success(self, privy_client):
         """Test successful transaction signing."""
         mock_signed = MagicMock()
-        mock_signed.transaction_hash = "0xsigned"
+        mock_signed.to_dict.return_value = {"transaction_hash": "0xsigned"}
 
-        with patch.object(privy_client, "_get_client") as mock_get_client:
+        with patch.object(privy_client, "_get_client", new_callable=AsyncMock) as mock_get_client:
             mock_sdk_client = MagicMock()
-            mock_sdk_client.wallets.sign_transaction = AsyncMock(return_value=mock_signed)
+            mock_sdk_client.wallets.rpc = AsyncMock(return_value=mock_signed)
             mock_get_client.return_value = mock_sdk_client
 
             result = await privy_client.sign_transaction(
@@ -175,11 +180,11 @@ class TestPrivyClient:
     async def test_sign_message_success(self, privy_client):
         """Test successful message signing."""
         mock_signed = MagicMock()
-        mock_signed.signature = "0xsigned_msg"
+        mock_signed.to_dict.return_value = {"signature": "0xsigned_msg"}
 
-        with patch.object(privy_client, "_get_client") as mock_get_client:
+        with patch.object(privy_client, "_get_client", new_callable=AsyncMock) as mock_get_client:
             mock_sdk_client = MagicMock()
-            mock_sdk_client.wallets.sign_message = AsyncMock(return_value=mock_signed)
+            mock_sdk_client.wallets.rpc = AsyncMock(return_value=mock_signed)
             mock_get_client.return_value = mock_sdk_client
 
             result = await privy_client.sign_message(wallet_id="wallet_123", message="test message")

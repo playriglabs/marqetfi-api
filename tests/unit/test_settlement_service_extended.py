@@ -86,7 +86,9 @@ class TestSettlementServiceExtended:
             mock_router.get_settlement_provider.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_transaction_status_success(self, settlement_service, mock_settlement_provider):
+    async def test_get_transaction_status_success(
+        self, settlement_service, mock_settlement_provider
+    ):
         """Test getting transaction status successfully."""
         result = await settlement_service.get_transaction_status("0xhash123")
 
@@ -101,4 +103,3 @@ class TestSettlementServiceExtended:
 
         with pytest.raises(ValueError, match="Settlement provider not configured"):
             await service.get_transaction_status("0xhash123")
-

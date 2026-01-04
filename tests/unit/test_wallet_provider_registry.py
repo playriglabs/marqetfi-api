@@ -26,7 +26,7 @@ class TestWalletProviderRegistry:
         WalletProviderRegistry.register("test", MockWalletProvider)
 
         assert WalletProviderRegistry.get("test") == MockWalletProvider
-        assert WalletProviderRegistry.has("test") is True
+        assert WalletProviderRegistry.is_registered("test") is True
 
     def test_get_provider_not_found(self):
         """Test getting provider that doesn't exist."""
@@ -34,7 +34,7 @@ class TestWalletProviderRegistry:
 
     def test_has_provider_false(self):
         """Test checking for provider that doesn't exist."""
-        assert WalletProviderRegistry.has("nonexistent") is False
+        assert WalletProviderRegistry.is_registered("nonexistent") is False
 
     def test_list_providers_empty(self):
         """Test listing providers when empty."""

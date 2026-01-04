@@ -1,17 +1,18 @@
 """Unit tests for risk management service."""
 
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
 
+from app.models.enums import PositionSide, TradeSide, TradeStatus
+from app.models.trading import Position, Trade
+from app.repositories.risk_repository import RiskLimitRepository
 from app.services.risk_management_service import RiskManagementService
 
 
 @pytest.mark.asyncio
 async def test_validate_leverage_within_limit(db_session):
-    """Test leverage validation when within limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
-
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -36,7 +37,6 @@ async def test_validate_leverage_within_limit(db_session):
 @pytest.mark.asyncio
 async def test_validate_leverage_exceeds_limit(db_session):
     """Test leverage validation when exceeds limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
@@ -71,7 +71,6 @@ async def test_calculate_required_margin(db_session):
 @pytest.mark.asyncio
 async def test_validate_margin_sufficient_balance(db_session):
     """Test margin validation with sufficient balance."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
@@ -103,7 +102,6 @@ async def test_validate_margin_sufficient_balance(db_session):
 @pytest.mark.asyncio
 async def test_validate_margin_insufficient_balance(db_session):
     """Test margin validation with insufficient balance."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
@@ -135,7 +133,6 @@ async def test_validate_margin_insufficient_balance(db_session):
 @pytest.mark.asyncio
 async def test_pre_trade_validation_all_pass(db_session):
     """Test pre-trade validation when all checks pass."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
@@ -168,9 +165,6 @@ async def test_pre_trade_validation_all_pass(db_session):
 @pytest.mark.asyncio
 async def test_monitor_position_risk_margin_call(db_session):
     """Test risk alert generation for margin call."""
-    from app.models.enums import PositionSide, TradeSide, TradeStatus
-    from app.models.trading import Position, Trade
-    from app.repositories.risk_repository import RiskLimitRepository
 
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
@@ -187,7 +181,6 @@ async def test_monitor_position_risk_margin_call(db_session):
     )
 
     # Create a trade
-    from datetime import datetime
 
     trade = Trade(
         user_id=1,
@@ -246,9 +239,6 @@ async def test_monitor_position_risk_margin_call(db_session):
 @pytest.mark.asyncio
 async def test_monitor_position_risk_liquidation_risk(db_session):
     """Test risk alert generation for liquidation risk."""
-    from app.models.enums import PositionSide, TradeSide, TradeStatus
-    from app.models.trading import Position, Trade
-    from app.repositories.risk_repository import RiskLimitRepository
 
     # Create a risk limit
     risk_limit_repo = RiskLimitRepository()
@@ -265,7 +255,6 @@ async def test_monitor_position_risk_liquidation_risk(db_session):
     )
 
     # Create a trade
-    from datetime import datetime
 
     trade = Trade(
         user_id=1,
@@ -324,7 +313,6 @@ async def test_monitor_position_risk_liquidation_risk(db_session):
 @pytest.mark.asyncio
 async def test_get_risk_limit_user_specific_asset(db_session):
     """Test getting user-specific risk limit for asset."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -350,7 +338,6 @@ async def test_get_risk_limit_user_specific_asset(db_session):
 @pytest.mark.asyncio
 async def test_get_risk_limit_user_global(db_session):
     """Test getting user-specific global risk limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -375,7 +362,6 @@ async def test_get_risk_limit_user_global(db_session):
 @pytest.mark.asyncio
 async def test_get_risk_limit_asset_global(db_session):
     """Test getting asset-specific global risk limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -400,7 +386,6 @@ async def test_get_risk_limit_asset_global(db_session):
 @pytest.mark.asyncio
 async def test_get_risk_limit_global_default(db_session):
     """Test getting global default risk limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -436,7 +421,6 @@ async def test_get_risk_limit_no_config(db_session):
 @pytest.mark.asyncio
 async def test_validate_position_size_within_limit(db_session):
     """Test position size validation when within limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -463,7 +447,6 @@ async def test_validate_position_size_within_limit(db_session):
 @pytest.mark.asyncio
 async def test_validate_position_size_exceeds_limit(db_session):
     """Test position size validation when exceeds limit."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -490,8 +473,6 @@ async def test_validate_position_size_exceeds_limit(db_session):
 @pytest.mark.asyncio
 async def test_validate_position_size_with_existing_positions(db_session):
     """Test position size validation with existing positions."""
-    from app.repositories.risk_repository import RiskLimitRepository
-    from app.repositories.position_repository import PositionRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -507,10 +488,10 @@ async def test_validate_position_size_with_existing_positions(db_session):
     )
 
     # Create existing position
-    from app.models.trading import Position
-    from app.models.enums import PositionSide
+    # Create a trade
 
-    from datetime import datetime
+    from app.models.enums import PositionSide
+    from app.models.trading import Position
 
     existing_position = Position(
         user_id=1,
@@ -525,6 +506,9 @@ async def test_validate_position_size_with_existing_positions(db_session):
         collateral=Decimal("60000"),
         provider="ostium",
         created_at=datetime.utcnow(),
+        unrealized_pnl=0,
+        unrealized_pnl_percentage=0.0,
+        margin_ratio=Decimal("0.1"),
     )
     db_session.add(existing_position)
     await db_session.commit()
@@ -543,7 +527,6 @@ async def test_validate_position_size_with_existing_positions(db_session):
 @pytest.mark.asyncio
 async def test_validate_margin_below_minimum(db_session):
     """Test margin validation when below minimum."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -574,7 +557,6 @@ async def test_validate_margin_below_minimum(db_session):
 @pytest.mark.asyncio
 async def test_validate_pre_trade_leverage_fails(db_session):
     """Test pre-trade validation when leverage check fails."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -606,7 +588,6 @@ async def test_validate_pre_trade_leverage_fails(db_session):
 @pytest.mark.asyncio
 async def test_validate_pre_trade_position_size_fails(db_session):
     """Test pre-trade validation when position size check fails."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -638,7 +619,6 @@ async def test_validate_pre_trade_position_size_fails(db_session):
 @pytest.mark.asyncio
 async def test_validate_pre_trade_margin_fails(db_session):
     """Test pre-trade validation when margin check fails."""
-    from app.repositories.risk_repository import RiskLimitRepository
 
     risk_limit_repo = RiskLimitRepository()
     await risk_limit_repo.create(
@@ -670,8 +650,6 @@ async def test_validate_pre_trade_margin_fails(db_session):
 @pytest.mark.asyncio
 async def test_get_user_risk_metrics(db_session):
     """Test getting user risk metrics."""
-    from app.repositories.risk_repository import RiskLimitRepository, RiskEventRepository
-    from app.repositories.position_repository import PositionRepository
 
     # Create risk limit
     risk_limit_repo = RiskLimitRepository()

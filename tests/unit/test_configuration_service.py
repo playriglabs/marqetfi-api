@@ -231,4 +231,3 @@ class TestConfigurationService:
             result = await service.get_config_with_fallback("test_key", default="default_value")
 
             assert result == "default_value"
-

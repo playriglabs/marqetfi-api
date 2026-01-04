@@ -137,7 +137,7 @@ class TestProviderRouter:
         with patch("app.services.providers.router.ProviderFactory") as mock_factory:
             mock_factory.get_trading_provider = AsyncMock(return_value=mock_trading_provider)
 
-            with patch("app.services.providers.router.get_settings") as mock_get_settings:
+            with patch("app.config.get_settings") as mock_get_settings:
                 mock_settings = MagicMock()
                 mock_settings.TRADING_PROVIDER = "ostium"
                 mock_get_settings.return_value = mock_settings
@@ -190,7 +190,7 @@ class TestProviderRouter:
         with patch("app.services.providers.router.ProviderFactory") as mock_factory:
             mock_factory.get_settlement_provider = AsyncMock(return_value=mock_settlement_provider)
 
-            with patch("app.services.providers.router.get_settings") as mock_get_settings:
+            with patch("app.config.get_settings") as mock_get_settings:
                 mock_settings = MagicMock()
                 mock_settings.SETTLEMENT_PROVIDER = "ostium"
                 mock_get_settings.return_value = mock_settings

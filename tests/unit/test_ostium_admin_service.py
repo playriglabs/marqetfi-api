@@ -105,12 +105,20 @@ class TestOstiumAdminService:
             "network": "mainnet",
         }
 
-        with patch.object(ostium_service.repository, "deactivate_all", new_callable=AsyncMock), patch.object(
-            ostium_service.repository, "create", new_callable=AsyncMock
-        ) as mock_create, patch.object(
-            ostium_service.repository, "activate", new_callable=AsyncMock
-        ) as mock_activate, patch(
-            "app.services.ostium_admin_service.encrypt_value", return_value="encrypted_key"
+        with (
+            patch.object(
+                ostium_service.repository,
+                "get_next_version",
+                new_callable=AsyncMock,
+                return_value=1,
+            ),
+            patch.object(
+                ostium_service.repository, "create", new_callable=AsyncMock
+            ) as mock_create,
+            patch.object(
+                ostium_service.repository, "activate", new_callable=AsyncMock
+            ) as mock_activate,
+            patch("app.services.ostium_admin_service.encrypt_value", return_value="encrypted_key"),
         ):
             mock_settings = MagicMock(spec=OstiumSettings)
             mock_settings.id = 1
@@ -128,8 +136,19 @@ class TestOstiumAdminService:
         """Test successful settings update."""
         settings_data = {"rpc_url": "https://new-rpc.example.com"}
 
-        with patch.object(ostium_service.repository, "get", new_callable=AsyncMock, return_value=sample_settings), patch.object(
-            ostium_service.repository, "update", new_callable=AsyncMock, return_value=sample_settings
+        with (
+            patch.object(
+                ostium_service.repository,
+                "get",
+                new_callable=AsyncMock,
+                return_value=sample_settings,
+            ),
+            patch.object(
+                ostium_service.repository,
+                "update",
+                new_callable=AsyncMock,
+                return_value=sample_settings,
+            ),
         ):
             sample_settings.is_encrypted = False
 
@@ -152,8 +171,14 @@ class TestOstiumAdminService:
         mock_settings.retry_delay = Decimal("1.0")
         mock_settings.is_encrypted = False
 
-        with patch.object(ostium_service.repository, "get_active", new_callable=AsyncMock, return_value=mock_settings), patch(
-            "app.services.ostium_admin_service.decrypt_value", return_value="decrypted_key"
+        with (
+            patch.object(
+                ostium_service.repository,
+                "get_active",
+                new_callable=AsyncMock,
+                return_value=mock_settings,
+            ),
+            patch("app.services.ostium_admin_service.decrypt_value", return_value="decrypted_key"),
         ):
             config = await ostium_service.get_active_config(db_session)
 
@@ -162,7 +187,9 @@ class TestOstiumAdminService:
     @pytest.mark.asyncio
     async def test_get_active_config_not_found(self, ostium_service, db_session):
         """Test active config retrieval when not found."""
-        with patch.object(ostium_service.repository, "get_active", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            ostium_service.repository, "get_active", new_callable=AsyncMock, return_value=None
+        ):
             config = await ostium_service.get_active_config(db_session)
 
             assert config is None
@@ -191,12 +218,15 @@ class TestOstiumAdminService:
 
     def test_settings_to_dict_with_private_key(self, ostium_service, sample_settings):
         """Test converting settings to dict with private key."""
+        from datetime import datetime
+
         sample_settings.id = 1
-        sample_settings.private_key = "0x123"
-        sample_settings.is_encrypted = False
+        sample_settings.private_key_encrypted = "encrypted_key"
+        sample_settings.created_at = datetime.now()
+        sample_settings.updated_at = datetime.now()
 
         with patch("app.services.ostium_admin_service.decrypt_value", return_value="decrypted_key"):
             result = ostium_service.settings_to_dict(sample_settings, include_private_key=True)
 
             assert "private_key" in result
-
+            assert result["private_key"] == "decrypted_key"

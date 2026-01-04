@@ -128,16 +128,20 @@ class TestProviderRouterExtended:
     @pytest.mark.asyncio
     async def test_get_trading_provider_default(self, router):
         """Test getting trading provider with default."""
-        with patch(
-            "app.services.providers.router.ProviderFactory.get_trading_provider"
-        ) as mock_get:
+        with (
+            patch("app.services.providers.router.ProviderFactory.get_trading_provider") as mock_get,
+            patch("app.config.get_settings") as mock_settings,
+        ):
             mock_provider = MagicMock()
             mock_get.return_value = mock_provider
+
+            # Mock settings to return default
+            mock_settings.return_value.TRADING_PROVIDER = "ostium"
 
             provider = await router.get_trading_provider()
 
             assert provider == mock_provider
-            mock_get.assert_called_once_with(None)
+            mock_get.assert_called_once_with("ostium")
 
     @pytest.mark.asyncio
     async def test_get_price_provider_default(self, router):
@@ -154,13 +158,19 @@ class TestProviderRouterExtended:
     @pytest.mark.asyncio
     async def test_get_settlement_provider_default(self, router):
         """Test getting settlement provider with default."""
-        with patch(
-            "app.services.providers.router.ProviderFactory.get_settlement_provider"
-        ) as mock_get:
+        with (
+            patch(
+                "app.services.providers.router.ProviderFactory.get_settlement_provider"
+            ) as mock_get,
+            patch("app.config.get_settings") as mock_settings,
+        ):
             mock_provider = MagicMock()
             mock_get.return_value = mock_provider
+
+            # Mock settings to return default
+            mock_settings.return_value.SETTLEMENT_PROVIDER = "ostium"
 
             provider = await router.get_settlement_provider()
 
             assert provider == mock_provider
-            mock_get.assert_called_once_with(None)
+            mock_get.assert_called_once_with("ostium")

@@ -109,9 +109,23 @@ class WalletSigner:
         try:
             account = Account.from_key(self.private_key)
             signed_tx = account.sign_transaction(transaction)
+
+            # Handle different versions of eth-account
+            raw_tx = getattr(
+                signed_tx,
+                "rawTransaction",
+                getattr(signed_tx, "raw_transaction", getattr(signed_tx, "raw", None)),
+            )
+
+            # Also checking for snake case hash just in case
+            tx_hash = getattr(signed_tx, "hash", getattr(signed_tx, "transaction_hash", None))
+
+            if raw_tx is None or tx_hash is None:
+                raise ValueError(f"Unexpected SignedTransaction format: {str(signed_tx)}")
+
             return {
-                "rawTransaction": signed_tx.rawTransaction.hex(),
-                "hash": signed_tx.hash.hex(),
+                "rawTransaction": raw_tx.hex() if hasattr(raw_tx, "hex") else raw_tx,
+                "hash": tx_hash.hex() if hasattr(tx_hash, "hex") else tx_hash,
             }
         except Exception as e:
             raise WalletSigningError(
@@ -157,7 +171,7 @@ class WalletSigner:
             account = Account.from_key(self.private_key)
             message_hash = encode_defunct(text=message)
             signed_message = account.sign_message(message_hash)
-            return cast(str, signed_message.signature.hex())
+            return cast(str, "0x" + signed_message.signature.hex())
         except Exception as e:
             raise WalletSigningError(
                 f"Private key message signing failed: {str(e)}",

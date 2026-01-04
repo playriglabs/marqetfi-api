@@ -124,3 +124,60 @@ class UserService:
         await db.refresh(user)
 
         return user
+
+    @staticmethod
+    async def get_or_create_user_from_provider(
+        db: AsyncSession,
+        provider_userinfo: dict,
+        provider_name: str,
+    ) -> User:
+        """Get or create user from provider user info.
+
+        This is a convenience method that can be used by authentication services.
+        For Auth0, use sync_user_from_auth0 instead.
+
+        Args:
+            db: Database session
+            provider_userinfo: Provider user info dict
+            provider_name: Provider name (auth0, privy, etc.)
+
+        Returns:
+            User instance
+        """
+        # For Auth0, use the existing sync method
+        if provider_name == "auth0":
+            return await UserService.sync_user_from_auth0(db, provider_userinfo)
+
+        # For other providers, create a basic user
+        from app.models.enums import AuthMethod, FeatureAccessLevel, WalletType
+
+        provider_user_id = provider_userinfo.get("id") or provider_userinfo.get("user_id")
+        if not provider_user_id:
+            raise ValueError(f"{provider_name} user info missing user ID")
+
+        email = (
+            provider_userinfo.get("email")
+            or f"{provider_name}-{provider_user_id}@{provider_name}.local"
+        )
+        username = (
+            email.split("@")[0] if "@" in email else f"{provider_name}-{provider_user_id[:8]}"
+        )
+
+        # Check if user exists
+        user = await UserService.get_user_by_email(db, email)
+        if user:
+            return user
+
+        # Create new user
+        user = User(
+            email=email,
+            username=username,
+            auth_method=AuthMethod.WALLET if provider_name == "privy" else AuthMethod.EMAIL,
+            wallet_type=WalletType.NONE,
+            feature_access_level=FeatureAccessLevel.FULL,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+        return user

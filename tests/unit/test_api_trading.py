@@ -1,12 +1,11 @@
 """Test trading API endpoints."""
 
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_active_user, get_trading_service
+from app.api.dependencies import get_current_active_user, get_current_user, get_trading_service
 from app.main import app
 from app.models.enums import WalletType
 from app.models.user import User
@@ -52,7 +51,9 @@ class TestTradingAPI:
                 "status": "success",
             }
         )
-        service.close_trade = AsyncMock(return_value={"transaction_hash": "0x456", "status": "closed"})
+        service.close_trade = AsyncMock(
+            return_value={"transaction_hash": "0x456", "status": "closed"}
+        )
         service.update_tp = AsyncMock(return_value={"status": "updated"})
         service.update_sl = AsyncMock(return_value={"status": "updated"})
         service.get_open_trades = AsyncMock(return_value=[])
@@ -66,7 +67,15 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_open_trade_success(self, client, sample_user, mock_trading_service, db_session):
         """Test successful trade opening."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -94,7 +103,14 @@ class TestTradingAPI:
         """Test trade opening with validation error."""
         mock_trading_service.open_trade = AsyncMock(side_effect=ValueError("Invalid leverage"))
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -117,7 +133,15 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_close_trade_success(self, client, sample_user, mock_trading_service):
         """Test successful trade closing."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -135,7 +159,15 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_update_take_profit_success(self, client, sample_user, mock_trading_service):
         """Test successful take profit update."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -153,7 +185,15 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_update_stop_loss_success(self, client, sample_user, mock_trading_service):
         """Test successful stop loss update."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -171,25 +211,41 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_get_open_trades_success(self, client, sample_user, mock_trading_service):
         """Test getting open trades."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
             response = client.get(
-                "/api/v1/trading/trades",
+                "/api/v1/trading/trades?trader_address=0x123",
                 headers={"Authorization": "Bearer test_token"},
             )
 
             assert response.status_code == 200
             data = response.json()
-            assert "trades" in data
+            assert isinstance(data, list)
         finally:
             app.dependency_overrides.clear()
 
     @pytest.mark.asyncio
     async def test_get_pairs_success(self, client, sample_user, mock_trading_service):
         """Test getting trading pairs."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -211,7 +267,14 @@ class TestTradingAPI:
             return_value={"pnl": 100.0, "leverage": 10, "collateral": 1000.0}
         )
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -229,9 +292,18 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_get_orders_success(self, client, sample_user, mock_trading_service):
         """Test getting orders."""
-        mock_trading_service.get_orders = AsyncMock(return_value=[{"order_id": "123", "status": "pending"}])
+        mock_trading_service.get_orders = AsyncMock(
+            return_value=[{"order_id": "123", "status": "pending"}]
+        )
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -250,7 +322,15 @@ class TestTradingAPI:
     @pytest.mark.asyncio
     async def test_get_orders_missing_address(self, client, sample_user, mock_trading_service):
         """Test getting orders without trader address."""
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -270,7 +350,14 @@ class TestTradingAPI:
             return_value={"transaction_hash": "0x789", "status": "cancelled"}
         )
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -292,7 +379,14 @@ class TestTradingAPI:
             return_value={"transaction_hash": "0xabc", "status": "updated"}
         )
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_trading_service] = lambda: mock_trading_service
 
         try:
@@ -306,4 +400,3 @@ class TestTradingAPI:
             assert data["status"] == "updated"
         finally:
             app.dependency_overrides.clear()
-

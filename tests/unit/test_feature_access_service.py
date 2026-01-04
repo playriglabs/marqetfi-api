@@ -55,9 +55,7 @@ class TestFeatureAccessService:
 
     def test_check_feature_access_full_access_mpc(self, user_full_access_mpc):
         """Test full access features for MPC wallet user."""
-        assert (
-            FeatureAccessService.check_feature_access(user_full_access_mpc, "open_trade") is True
-        )
+        assert FeatureAccessService.check_feature_access(user_full_access_mpc, "open_trade") is True
         assert (
             FeatureAccessService.check_feature_access(user_full_access_mpc, "close_trade") is True
         )
@@ -95,9 +93,7 @@ class TestFeatureAccessService:
 
     def test_check_feature_access_limited_user(self, user_limited_access):
         """Test feature access for limited access user."""
-        assert (
-            FeatureAccessService.check_feature_access(user_limited_access, "open_trade") is False
-        )
+        assert FeatureAccessService.check_feature_access(user_limited_access, "open_trade") is False
         assert (
             FeatureAccessService.check_feature_access(user_limited_access, "batch_operations")
             is False
@@ -168,4 +164,3 @@ class TestFeatureAccessService:
     def test_require_mpc_wallet_false(self, user_full_access_external):
         """Test require MPC wallet when user doesn't have MPC wallet."""
         assert FeatureAccessService.require_mpc_wallet(user_full_access_external) is False
-

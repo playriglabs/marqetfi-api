@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from app.config import get_settings
 from app.config.providers.lifi import LifiConfig
 from app.config.providers.lighter import LighterConfig
 from app.config.providers.ostium import OstiumConfig
@@ -73,8 +74,6 @@ class ProviderFactory:
                 pass
 
             # Fall back to environment variables
-            from app.config import get_settings
-
             settings = get_settings()
             # Use new format if available, fall back to old format for backward compatibility
             private_key = (
@@ -147,8 +146,6 @@ class ProviderFactory:
                 pass
 
             # Fall back to environment variables
-            from app.config import get_settings
-
             settings = get_settings()
 
             return LighterConfig(
@@ -194,8 +191,6 @@ class ProviderFactory:
                 pass
 
             # Fall back to environment variables
-            from app.config import get_settings
-
             settings = get_settings()
 
             return LifiConfig(
@@ -209,8 +204,6 @@ class ProviderFactory:
 
         if provider_name == "auth0":
             # Auth0 auth provider config
-            from app.config import get_settings
-
             settings = get_settings()
             return Auth0AuthConfig(
                 enabled=getattr(settings, "AUTH0_DOMAIN", "") != "",
@@ -228,8 +221,6 @@ class ProviderFactory:
 
         if provider_name == "privy":
             # Privy auth provider config
-            from app.config import get_settings
-
             settings = get_settings()
             return PrivyAuthConfig(
                 enabled=getattr(settings, "PRIVY_ENABLED", True),
@@ -247,8 +238,6 @@ class ProviderFactory:
     async def get_trading_provider(cls, provider_name: str | None = None) -> BaseTradingProvider:
         """Get configured trading provider instance."""
         if provider_name is None:
-            from app.config import get_settings
-
             settings = get_settings()
             provider_name = getattr(settings, "TRADING_PROVIDER", "ostium")
 
@@ -278,8 +267,6 @@ class ProviderFactory:
     async def get_price_provider(cls, provider_name: str | None = None) -> BasePriceProvider:
         """Get configured price provider instance."""
         if provider_name is None:
-            from app.config import get_settings
-
             settings = get_settings()
             provider_name = getattr(settings, "PRICE_PROVIDER", "ostium")
 
@@ -311,8 +298,6 @@ class ProviderFactory:
     ) -> BaseSettlementProvider:
         """Get configured settlement provider instance."""
         if provider_name is None:
-            from app.config import get_settings
-
             settings = get_settings()
             provider_name = getattr(settings, "SETTLEMENT_PROVIDER", "ostium")
 
@@ -342,8 +327,6 @@ class ProviderFactory:
     async def get_swap_provider(cls, provider_name: str | None = None) -> BaseSwapProvider:
         """Get configured swap provider instance."""
         if provider_name is None:
-            from app.config import get_settings
-
             settings = get_settings()
             provider_name = getattr(settings, "SWAP_PROVIDER", "lifi")
 
@@ -373,13 +356,16 @@ class ProviderFactory:
     async def get_auth_provider(cls, provider_name: str | None = None) -> BaseAuthProvider:
         """Get configured authentication provider instance."""
         if provider_name is None:
-            from app.config import get_settings
-
             settings = get_settings()
             # Default to privy if enabled, otherwise auth0
-            if getattr(settings, "PRIVY_ENABLED", False) and getattr(settings, "PRIVY_APP_ID", ""):
+            privy_enabled = getattr(settings, "PRIVY_ENABLED", False)
+            privy_app_id = getattr(settings, "PRIVY_APP_ID", "") or ""
+            auth0_domain = getattr(settings, "AUTH0_DOMAIN", "") or ""
+
+            # Check Privy first only if explicitly enabled AND has app_id
+            if privy_enabled and privy_app_id:
                 provider_name = "privy"
-            elif getattr(settings, "AUTH0_DOMAIN", ""):
+            elif auth0_domain:
                 provider_name = "auth0"
             else:
                 raise ExternalServiceError(

@@ -1,12 +1,12 @@
 """Test deposit API endpoints."""
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_active_user, get_db
+from app.api.dependencies import get_current_active_user
 from app.main import app
 from app.models.deposit import Deposit
 from app.models.enums import WalletType
@@ -66,18 +66,28 @@ class TestDepositAPI:
         service.get_swap_status = AsyncMock(
             return_value={"deposit_id": 1, "swap_needed": False, "swaps": []}
         )
+        # Ensure deposit belongs to user
+        mock_deposit.user_id = 1
         return service
 
     def test_create_deposit_success(self, client, sample_user, mock_deposit_service):
         """Test successful deposit creation."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.deposits import get_deposit_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_deposit_service] = lambda: mock_deposit_service
 
         try:
             response = client.post(
-                "/api/v1/deposits/deposits",
+                "/api/v1/deposits",
                 json={
                     "token_address": "0x123",
                     "token_symbol": "USDC",
@@ -98,14 +108,22 @@ class TestDepositAPI:
 
     def test_list_deposits_success(self, client, sample_user, mock_deposit_service):
         """Test successful deposit listing."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.deposits import get_deposit_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_deposit_service] = lambda: mock_deposit_service
 
         try:
             response = client.get(
-                "/api/v1/deposits/deposits",
+                "/api/v1/deposits",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -118,14 +136,22 @@ class TestDepositAPI:
 
     def test_get_deposit_success(self, client, sample_user, mock_deposit_service):
         """Test successful deposit retrieval."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.deposits import get_deposit_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_deposit_service] = lambda: mock_deposit_service
 
         try:
             response = client.get(
-                "/api/v1/deposits/deposits/1",
+                "/api/v1/deposits/1",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -137,16 +163,24 @@ class TestDepositAPI:
 
     def test_get_deposit_not_found(self, client, sample_user, mock_deposit_service):
         """Test deposit retrieval when not found."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.deposits import get_deposit_service
 
         mock_deposit_service.get_deposit = AsyncMock(return_value=None)
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
         app.dependency_overrides[get_deposit_service] = lambda: mock_deposit_service
 
         try:
             response = client.get(
-                "/api/v1/deposits/deposits/999",
+                "/api/v1/deposits/999",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -156,20 +190,63 @@ class TestDepositAPI:
 
     def test_get_swap_status_success(self, client, sample_user, mock_deposit_service):
         """Test successful swap status retrieval."""
+        from app.api.dependencies import get_current_user
         from app.api.v1.deposits import get_deposit_service
 
-        app.dependency_overrides[get_current_active_user] = lambda: sample_user
+        async def override_get_current_user():
+            return sample_user
+
+        async def override_get_current_active_user():
+            return sample_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+
+        # Get the mock deposit from the fixture and ensure it's properly configured
+        # The fixture already creates a mock_deposit, but we need to ensure get_deposit returns it
+        mock_deposit = mock_deposit_service.get_deposit.return_value
+        if mock_deposit is None:
+            # Create a fresh mock deposit if fixture didn't set it up
+            from datetime import datetime
+            from decimal import Decimal
+
+            mock_deposit = MagicMock(spec=Deposit)
+            mock_deposit.id = 1
+            mock_deposit.user_id = 1
+            mock_deposit.token_address = "0x123"
+            mock_deposit.token_symbol = "USDC"
+            mock_deposit.chain = "arbitrum"
+            mock_deposit.amount = Decimal("100.0")
+            mock_deposit.status = "completed"
+            mock_deposit.provider = "ostium"
+            mock_deposit.transaction_hash = "0xabc"
+            mock_deposit.created_at = datetime.utcnow()
+            mock_deposit.updated_at = datetime.utcnow()
+
+        # Ensure user_id matches
+        mock_deposit.user_id = 1
+
+        # Override the service methods to return our mock deposit
+        mock_deposit_service.get_deposit = AsyncMock(return_value=mock_deposit)
+        mock_deposit_service.get_swap_status = AsyncMock(
+            return_value={"deposit_id": 1, "swap_needed": False, "swaps": []}
+        )
+
+        # Override the dependency
         app.dependency_overrides[get_deposit_service] = lambda: mock_deposit_service
 
         try:
             response = client.get(
-                "/api/v1/deposits/deposits/1/swap-status",
+                "/api/v1/deposits/1/swap-status",
                 headers={"Authorization": "Bearer test_token"},
             )
 
+            if response.status_code != 200:
+                print(f"Response error: {response.text}")
             assert response.status_code == 200
             data = response.json()
             assert data["deposit_id"] == 1
+            assert data["swap_needed"] is False
+            assert "swaps" in data
         finally:
             app.dependency_overrides.clear()
-

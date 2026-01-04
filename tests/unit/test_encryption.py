@@ -105,4 +105,3 @@ class TestEncryption:
             with patch("app.utils.encryption._get_encryption_key", side_effect=Exception("Error")):
                 with pytest.raises(ValueError, match="Failed to decrypt value"):
                     decrypt_value("test")
-

@@ -108,10 +108,26 @@ class Auth0Service:
             User data or None if not found
         """
         try:
+            # Try users_by_email.search_users_by_email first (returns list)
+            if hasattr(self.management_api, "users_by_email"):
+                users_list = await asyncio.to_thread(
+                    self.management_api.users_by_email.search_users_by_email, email
+                )
+                if users_list and len(users_list) > 0:
+                    user = users_list[0]
+                    return cast(dict[str, Any], user if isinstance(user, dict) else dict(user))
+                return None
+            # Fallback to users.list (returns dict with "users" key)
             users = await asyncio.to_thread(self.management_api.users.list, q=f'email:"{email}"')
-            if users and len(users.get("users", [])) > 0:
-                user = users["users"][0]
-                return cast(dict[str, Any], user if isinstance(user, dict) else dict(user))
+            if users:
+                # Handle both dict response and list response
+                if isinstance(users, list):
+                    if len(users) > 0:
+                        user = users[0]
+                        return cast(dict[str, Any], user if isinstance(user, dict) else dict(user))
+                elif isinstance(users, dict) and len(users.get("users", [])) > 0:
+                    user = users["users"][0]
+                    return cast(dict[str, Any], user if isinstance(user, dict) else dict(user))
             return None
         except Auth0Error:
             return None

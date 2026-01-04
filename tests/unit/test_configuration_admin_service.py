@@ -31,7 +31,9 @@ class TestConfigurationAdminService:
             "is_encrypted": False,
         }
 
-        with patch.object(config_service.app_config_repo, "create", new_callable=AsyncMock) as mock_create:
+        with patch.object(
+            config_service.app_config_repo, "create", new_callable=AsyncMock
+        ) as mock_create:
             mock_config = MagicMock(spec=AppConfiguration)
             mock_config.id = 1
             mock_create.return_value = mock_config
@@ -52,9 +54,15 @@ class TestConfigurationAdminService:
             "is_encrypted": True,
         }
 
-        with patch("app.services.configuration_admin_service.encrypt_value", return_value="encrypted_value"), patch.object(
-            config_service.app_config_repo, "create", new_callable=AsyncMock
-        ) as mock_create:
+        with (
+            patch(
+                "app.services.configuration_admin_service.encrypt_value",
+                return_value="encrypted_value",
+            ),
+            patch.object(
+                config_service.app_config_repo, "create", new_callable=AsyncMock
+            ) as mock_create,
+        ):
             mock_config = MagicMock(spec=AppConfiguration)
             mock_config.id = 1
             mock_create.return_value = mock_config
@@ -70,8 +78,19 @@ class TestConfigurationAdminService:
         """Test successful app config update."""
         config_data = {"config_value": "updated_value"}
 
-        with patch.object(config_service.app_config_repo, "get", new_callable=AsyncMock, return_value=sample_app_config), patch.object(
-            config_service.app_config_repo, "update", new_callable=AsyncMock, return_value=sample_app_config
+        with (
+            patch.object(
+                config_service.app_config_repo,
+                "get",
+                new_callable=AsyncMock,
+                return_value=sample_app_config,
+            ),
+            patch.object(
+                config_service.app_config_repo,
+                "update",
+                new_callable=AsyncMock,
+                return_value=sample_app_config,
+            ),
         ):
             sample_app_config.is_encrypted = False
 
@@ -84,7 +103,9 @@ class TestConfigurationAdminService:
     @pytest.mark.asyncio
     async def test_update_app_config_not_found(self, config_service, db_session):
         """Test updating app config when not found."""
-        with patch.object(config_service.app_config_repo, "get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            config_service.app_config_repo, "get", new_callable=AsyncMock, return_value=None
+        ):
             with pytest.raises(ValueError, match="Configuration not found"):
                 await config_service.update_app_config(
                     db=db_session, config_id=999, config_data={"config_value": "value"}
@@ -99,17 +120,27 @@ class TestConfigurationAdminService:
             "config_data": {"key": "value"},
         }
 
-        with patch.object(
-            config_service.provider_config_repo, "create", new_callable=AsyncMock
-        ) as mock_create, patch.object(
-            config_service.provider_config_repo, "deactivate_all", new_callable=AsyncMock
-        ) as mock_deactivate, patch.object(
-            config_service.provider_config_repo, "activate", new_callable=AsyncMock
-        ) as mock_activate:
+        with (
+            patch.object(
+                config_service.provider_config_repo,
+                "get_latest_version",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.object(
+                config_service.provider_config_repo,
+                "get_active_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.object(
+                config_service.provider_config_repo, "create", new_callable=AsyncMock
+            ) as mock_create,
+        ):
             mock_config = MagicMock(spec=ProviderConfiguration)
             mock_config.id = 1
+            mock_config.version = 1
             mock_create.return_value = mock_config
-            mock_activate.return_value = mock_config
 
             result = await config_service.create_provider_config(
                 db=db_session, config_data=config_data, created_by=1, activate=True
@@ -120,18 +151,26 @@ class TestConfigurationAdminService:
     @pytest.mark.asyncio
     async def test_activate_provider_config_success(self, config_service, db_session):
         """Test successful provider config activation."""
-        with patch.object(
-            config_service.provider_config_repo, "get", new_callable=AsyncMock
-        ) as mock_get, patch.object(
-            config_service.provider_config_repo, "deactivate_all", new_callable=AsyncMock
-        ) as mock_deactivate, patch.object(
-            config_service.provider_config_repo, "activate", new_callable=AsyncMock
-        ) as mock_activate:
+        with (
+            patch.object(
+                config_service.provider_config_repo, "get", new_callable=AsyncMock
+            ) as mock_get,
+            patch.object(
+                config_service.provider_config_repo,
+                "get_active_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.object(
+                config_service.provider_config_repo, "update", new_callable=AsyncMock
+            ) as mock_update,
+        ):
             mock_config = MagicMock(spec=ProviderConfiguration)
             mock_config.id = 1
             mock_config.provider_name = "ostium"
+            mock_config.provider_type = "trading"
             mock_get.return_value = mock_config
-            mock_activate.return_value = mock_config
+            mock_update.return_value = mock_config
 
             result = await config_service.activate_provider_config(db=db_session, config_id=1)
 
@@ -140,7 +179,9 @@ class TestConfigurationAdminService:
     @pytest.mark.asyncio
     async def test_activate_provider_config_not_found(self, config_service, db_session):
         """Test activating provider config when not found."""
-        with patch.object(config_service.provider_config_repo, "get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            config_service.provider_config_repo, "get", new_callable=AsyncMock, return_value=None
+        ):
             with pytest.raises(ValueError, match="Configuration not found"):
                 await config_service.activate_provider_config(db=db_session, config_id=999)
 
@@ -156,9 +197,10 @@ class TestConfigurationAdminService:
         sample_app_config.created_at = None
         sample_app_config.updated_at = None
 
-        with patch("app.services.configuration_admin_service.decrypt_value", return_value="decrypted_value"):
-            result = config_service.config_to_dict(sample_app_config, include_private_key=False)
+        with patch(
+            "app.services.configuration_admin_service.decrypt_value", return_value="decrypted_value"
+        ):
+            result = config_service.config_to_dict(sample_app_config, include_encrypted=False)
 
             assert result["id"] == 1
             assert result["config_key"] == "test_key"
-

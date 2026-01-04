@@ -162,25 +162,29 @@ class TestWalletAuthServiceExtended:
         mock_wallet.provider_type = "privy"
         mock_wallet.provider_wallet_id = "wallet_123"
 
+        # Use a valid checksum address format to pass validation
+        existing_address = "0x" + "1" * 40
+
         with (
-            patch("app.services.wallet_auth_service.WalletProviderFactory") as mock_factory,
+            patch("app.services.wallet_providers.factory.WalletProviderFactory") as mock_factory,
             patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute,
             patch.object(db_session, "commit", new_callable=AsyncMock),
             patch.object(db_session, "refresh", new_callable=AsyncMock),
         ):
             mock_provider = MagicMock()
             mock_provider.create_wallet = AsyncMock(
-                return_value={"wallet_id": "wallet_123", "address": "0x123"}
+                return_value={"wallet_id": "wallet_123", "address": existing_address}
             )
             mock_provider.initialize = AsyncMock()
             mock_factory.get_provider = AsyncMock(return_value=mock_provider)
 
             # Mock existing wallet
+            mock_wallet.address = existing_address
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = mock_wallet
             mock_execute.return_value = mock_result
 
-            with patch("app.services.wallet_auth_service.WalletRepository") as mock_repo:
+            with patch("app.services.wallet_auth_service.WalletRepository"):
                 result = await wallet_auth_service.create_mpc_wallet(
                     db=db_session, user=sample_user, provider="privy", network="mainnet"
                 )

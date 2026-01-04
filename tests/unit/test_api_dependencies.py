@@ -56,9 +56,10 @@ class TestAPIDependencies:
         mock_credentials = MagicMock(spec=HTTPAuthorizationCredentials)
         mock_credentials.credentials = "valid_token"
 
-        with patch("app.api.dependencies.decode_token", return_value={"sub": "1", "type": "access"}), patch(
-            "sqlalchemy.ext.asyncio.AsyncSession.execute"
-        ) as mock_execute:
+        with (
+            patch("app.api.dependencies.decode_token", return_value={"sub": "1", "type": "access"}),
+            patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute,
+        ):
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = sample_user
             mock_execute.return_value = mock_result
@@ -83,7 +84,9 @@ class TestAPIDependencies:
         mock_credentials = MagicMock(spec=HTTPAuthorizationCredentials)
         mock_credentials.credentials = "refresh_token"
 
-        with patch("app.api.dependencies.decode_token", return_value={"sub": "1", "type": "refresh"}):
+        with patch(
+            "app.api.dependencies.decode_token", return_value={"sub": "1", "type": "refresh"}
+        ):
             with pytest.raises(HTTPException, match="Invalid token type"):
                 await get_current_user(mock_credentials, db_session)
 
@@ -109,7 +112,7 @@ class TestAPIDependencies:
     @pytest.mark.asyncio
     async def test_get_current_admin_user_success(self, db_session, admin_user):
         """Test successful admin user retrieval."""
-        with patch("app.api.dependencies.UserRepository") as mock_repo_class:
+        with patch("app.repositories.user_repository.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get = AsyncMock(return_value=admin_user)
             mock_repo_class.return_value = mock_repo
@@ -121,7 +124,7 @@ class TestAPIDependencies:
     @pytest.mark.asyncio
     async def test_get_current_admin_user_not_superuser(self, db_session, sample_user):
         """Test admin user retrieval with non-superuser."""
-        with patch("app.api.dependencies.UserRepository") as mock_repo_class:
+        with patch("app.repositories.user_repository.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get = AsyncMock(return_value=sample_user)
             mock_repo_class.return_value = mock_repo
@@ -211,4 +214,3 @@ class TestAPIDependencies:
 
         with pytest.raises(HTTPException, match="Full access required"):
             await require_full_access(current_user=limited_user)
-

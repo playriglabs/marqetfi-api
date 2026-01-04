@@ -1,11 +1,12 @@
-.PHONY: help install dev test lint format clean run docker-up docker-down migrate setup pre-commit cli worker worker-prefork worker-stop worker-kill kill-all beat
+.PHONY: help install dev test test-serial lint format clean run docker-up docker-down migrate setup pre-commit cli worker worker-prefork worker-stop worker-kill kill-all beat
 
 help:
 	@echo "Available commands:"
 	@echo "  install        Install production dependencies"
 	@echo "  dev            Install development dependencies"
 	@echo "  setup          Setup project (install + pre-commit)"
-	@echo "  test           Run tests"
+	@echo "  test           Run tests in parallel (auto-detect CPU cores)"
+	@echo "  test-serial    Run tests serially (no parallel execution)"
 	@echo "  lint           Run linters"
 	@echo "  format         Format code"
 	@echo "  pre-commit     Run pre-commit on all files"
@@ -33,6 +34,14 @@ setup: dev
 	@echo "✅ Project setup complete!"
 
 test:
+	@if python3 -c "from importlib.metadata import distributions; any(d.metadata.get('Name') == 'pytest-xdist' for d in distributions())" 2>/dev/null; then \
+		pytest -v -n auto --cov=app --cov-report=term --cov-report=html; \
+	else \
+		echo "⚠️  pytest-xdist not installed, running tests serially..."; \
+		pytest -v --cov=app --cov-report=term --cov-report=html; \
+	fi
+
+test-serial:
 	pytest -v --cov=app --cov-report=term --cov-report=html
 
 lint:

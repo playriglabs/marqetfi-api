@@ -32,7 +32,7 @@ class TestProviderRouterInitialization:
         """Test default routing with custom ASSET_ROUTING dict."""
         router = ProviderRouter()
 
-        with patch("app.services.providers.router.get_settings") as mock_get_settings:
+        with patch("app.config.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
             mock_settings.ASSET_ROUTING = {"CUSTOM": "lighter", "OTHER": "ostium"}
             mock_get_settings.return_value = mock_settings
@@ -46,7 +46,7 @@ class TestProviderRouterInitialization:
         """Test default routing with custom ASSET_ROUTING JSON string."""
         router = ProviderRouter()
 
-        with patch("app.services.providers.router.get_settings") as mock_get_settings:
+        with patch("app.config.get_settings") as mock_get_settings:
             import json
 
             mock_settings = MagicMock()
@@ -62,7 +62,7 @@ class TestProviderRouterInitialization:
         """Test default routing with invalid JSON string."""
         router = ProviderRouter()
 
-        with patch("app.services.providers.router.get_settings") as mock_get_settings:
+        with patch("app.config.get_settings") as mock_get_settings:
             mock_settings = MagicMock()
             mock_settings.ASSET_ROUTING = "invalid json"
             mock_get_settings.return_value = mock_settings

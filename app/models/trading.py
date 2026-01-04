@@ -147,8 +147,12 @@ class Position(Base):
     current_price: Mapped[Decimal] = mapped_column(Numeric(36, 18), nullable=False)
     leverage: Mapped[int] = mapped_column(Integer, nullable=False)
     collateral: Mapped[Decimal] = mapped_column(Numeric(36, 18), nullable=False)
-    unrealized_pnl: Mapped[Decimal] = mapped_column(Numeric(36, 18), nullable=False)
-    unrealized_pnl_percentage: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+    unrealized_pnl: Mapped[Decimal] = mapped_column(
+        Numeric(36, 18), default=Decimal("0"), nullable=False
+    )
+    unrealized_pnl_percentage: Mapped[Decimal] = mapped_column(
+        Numeric(10, 4), default=Decimal("0"), nullable=False
+    )
     liquidation_price: Mapped[Decimal | None] = mapped_column(Numeric(36, 18), nullable=True)
     margin_ratio: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
     provider: Mapped[str] = mapped_column(String(50), nullable=False)  # ostium, lighter

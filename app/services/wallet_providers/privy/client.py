@@ -62,12 +62,19 @@ try:
         class APIConnectionError(Exception):  # type: ignore[no-redef]
             """Placeholder for Privy APIConnectionError."""
 
-            pass
+            def __init__(self, message: str = "") -> None:
+                super().__init__(message)
 
         class APIStatusError(Exception):  # type: ignore[no-redef]
             """Placeholder for Privy APIStatusError."""
 
-            status_code: int = 0
+            def __init__(
+                self, message: str = "", *, response: Any = None, body: Any = None
+            ) -> None:
+                super().__init__(message)
+                self.status_code: int = getattr(response, "status_code", 0) if response else 0
+                self.response = response
+                self.body = body
 
         class AuthenticationError(Exception):  # type: ignore[no-redef]
             """Placeholder for Privy AuthenticationError."""
@@ -91,12 +98,17 @@ except ImportError:
     class APIConnectionError(Exception):  # type: ignore[no-redef]
         """Placeholder for Privy APIConnectionError."""
 
-        pass
+        def __init__(self, message: str = "") -> None:
+            super().__init__(message)
 
     class APIStatusError(Exception):  # type: ignore[no-redef]
         """Placeholder for Privy APIStatusError."""
 
-        status_code: int = 0
+        def __init__(self, message: str = "", *, response: Any = None, body: Any = None) -> None:
+            super().__init__(message)
+            self.status_code: int = getattr(response, "status_code", 0) if response else 0
+            self.response = response
+            self.body = body
 
     class AuthenticationError(Exception):  # type: ignore[no-redef]
         """Placeholder for Privy AuthenticationError."""

@@ -20,6 +20,14 @@ class TestPriceFeedService:
         mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
         return mock_provider
 
+    @pytest.fixture(autouse=True)
+    def mock_cache_manager(self):
+        """Mock cache manager for all tests."""
+        with patch("app.services.price_feed_service.cache_manager") as mock_cache:
+            mock_cache.get = AsyncMock(return_value=None)
+            mock_cache.set = AsyncMock(return_value=True)
+            yield mock_cache
+
     @pytest.fixture
     def service_with_provider(self, mock_price_provider):
         """Create service with provider."""
@@ -41,27 +49,24 @@ class TestPriceFeedService:
         mock_price_provider.get_price.assert_called_once_with("BTC", "USDT")
 
     @pytest.mark.asyncio
-    async def test_get_price_with_cache(self, service_with_provider, mock_price_provider):
+    async def test_get_price_with_cache(
+        self, service_with_provider, mock_price_provider, mock_cache_manager
+    ):
         """Test price retrieval with cache."""
-        with patch("app.services.price_feed_service.cache_manager") as mock_cache:
-            mock_cache.get = AsyncMock(return_value=None)
-            mock_cache.set = AsyncMock(return_value=True)
+        await service_with_provider.get_price("BTC", "USDT", use_cache=True)
 
-            await service_with_provider.get_price("BTC", "USDT", use_cache=True)
-
-            mock_cache.get.assert_called_once()
-            mock_cache.set.assert_called_once()
+        mock_cache_manager.get.assert_called_once()
+        mock_cache_manager.set.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_price_cached(self, service_with_provider):
+    async def test_get_price_cached(self, service_with_provider, mock_cache_manager):
         """Test retrieving cached price."""
-        with patch("app.services.price_feed_service.cache_manager") as mock_cache:
-            mock_cache.get = AsyncMock(return_value=[99.0, 1234567890, "cached"])
+        mock_cache_manager.get = AsyncMock(return_value=[99.0, 1234567890, "cached"])
 
-            price, timestamp, source = await service_with_provider.get_price("BTC", "USDT")
+        price, timestamp, source = await service_with_provider.get_price("BTC", "USDT")
 
-            assert price == 99.0
-            assert source == "cached"
+        assert price == 99.0
+        assert source == "cached"
 
     @pytest.mark.asyncio
     async def test_get_price_no_provider(self):
@@ -115,21 +120,15 @@ class TestPriceFeedService:
         assert results["BTCUSDT"][0] == 100.0
 
     @pytest.mark.asyncio
-    async def test_get_prices_with_cache(self, service_with_provider):
+    async def test_get_prices_with_cache(self, service_with_provider, mock_cache_manager):
         """Test getting prices with cache."""
-        with patch("app.services.price_feed_service.cache_manager") as mock_cache:
-            mock_cache.get = AsyncMock(return_value=None)
-            mock_cache.set = AsyncMock(return_value=True)
+        mock_provider = MagicMock(spec=BasePriceProvider)
+        mock_provider.get_prices = AsyncMock(return_value={"BTC/USDT": (100.0, 1234567890, "test")})
+        service_with_provider.price_provider = mock_provider
 
-            mock_provider = MagicMock(spec=BasePriceProvider)
-            mock_provider.get_prices = AsyncMock(
-                return_value={"BTC/USDT": (100.0, 1234567890, "test")}
-            )
-            service_with_provider.price_provider = mock_provider
+        await service_with_provider.get_prices([("BTC", "USDT")])
 
-            await service_with_provider.get_prices([("BTC", "USDT")])
-
-            mock_cache.set.assert_called()
+        mock_cache_manager.set.assert_called()
 
     @pytest.mark.asyncio
     async def test_get_prices_by_pairs_success(self, service_with_provider, mock_price_provider):
@@ -172,7 +171,7 @@ class TestPriceFeedService:
             service = PriceFeedService()
             service.router = mock_router_instance
 
-            with patch("app.services.price_feed_service.ProviderFactory") as mock_factory:
+            with patch("app.services.providers.factory.ProviderFactory") as mock_factory:
                 mock_provider = MagicMock(spec=BasePriceProvider)
                 mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1}])
                 mock_factory.get_price_provider = AsyncMock(return_value=mock_provider)
@@ -191,7 +190,7 @@ class TestPriceFeedService:
             service = PriceFeedService()
             service.router = mock_router_instance
 
-            with patch("app.services.price_feed_service.ProviderFactory") as mock_factory:
+            with patch("app.services.providers.factory.ProviderFactory") as mock_factory:
                 mock_provider = MagicMock(spec=BasePriceProvider)
                 mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1}])
                 mock_factory.get_price_provider = AsyncMock(return_value=mock_provider)
@@ -199,4 +198,3 @@ class TestPriceFeedService:
                 pairs = await service.get_pairs()
 
                 assert len(pairs) >= 1
-

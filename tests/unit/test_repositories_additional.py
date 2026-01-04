@@ -89,8 +89,9 @@ class TestOstiumWalletRepository:
         mock_wallet.id = 1
         mock_wallet.is_active = True
 
-        with patch.object(wallet_repo, "get", new_callable=AsyncMock, return_value=mock_wallet), patch.object(
-            wallet_repo, "update", new_callable=AsyncMock, return_value=mock_wallet
+        with (
+            patch.object(wallet_repo, "get", new_callable=AsyncMock, return_value=mock_wallet),
+            patch.object(wallet_repo, "update", new_callable=AsyncMock, return_value=mock_wallet),
         ):
             result = await wallet_repo.deactivate(db_session, wallet_id=1)
 
@@ -103,8 +104,9 @@ class TestOstiumWalletRepository:
         mock_wallet.id = 1
         mock_wallet.is_active = False
 
-        with patch.object(wallet_repo, "get", new_callable=AsyncMock, return_value=mock_wallet), patch.object(
-            wallet_repo, "update", new_callable=AsyncMock, return_value=mock_wallet
+        with (
+            patch.object(wallet_repo, "get", new_callable=AsyncMock, return_value=mock_wallet),
+            patch.object(wallet_repo, "update", new_callable=AsyncMock, return_value=mock_wallet),
         ):
             result = await wallet_repo.activate(db_session, wallet_id=1)
 
@@ -234,9 +236,11 @@ class TestSessionRepository:
         mock_session.id = 1
         mock_session.revoked = False
 
-        with patch.object(session_repo, "get", new_callable=AsyncMock, return_value=mock_session), patch.object(
-            db_session, "commit", new_callable=AsyncMock
-        ), patch.object(db_session, "refresh", new_callable=AsyncMock):
+        with (
+            patch.object(session_repo, "get", new_callable=AsyncMock, return_value=mock_session),
+            patch.object(db_session, "commit", new_callable=AsyncMock),
+            patch.object(db_session, "refresh", new_callable=AsyncMock),
+        ):
             result = await session_repo.revoke_session(db_session, session_id=1)
 
             assert result is True
@@ -249,4 +253,3 @@ class TestSessionRepository:
             result = await session_repo.revoke_session(db_session, session_id=999)
 
             assert result is False
-

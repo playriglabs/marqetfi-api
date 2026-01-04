@@ -58,6 +58,9 @@ class TestLighterTradingProviderExtended:
         ):
             mock_account_api = MagicMock()
             mock_lighter.AccountApi = MagicMock(return_value=mock_account_api)
+            # Set flags manually since we're patching initialize
+            trading_provider.lighter_service._initialized = True
+            trading_provider.lighter_service._client = MagicMock()
 
             result = await trading_provider.get_open_trades("0x123")
 
@@ -84,6 +87,9 @@ class TestLighterTradingProviderExtended:
         ):
             mock_order_api = MagicMock()
             mock_lighter.OrderApi = MagicMock(return_value=mock_order_api)
+            # Set flags manually since we're patching initialize
+            trading_provider.lighter_service._initialized = True
+            trading_provider.lighter_service._client = MagicMock()
 
             result = await trading_provider.get_orders("0x123")
 
@@ -102,6 +108,9 @@ class TestLighterTradingProviderExtended:
         ):
             mock_order_api = MagicMock()
             mock_lighter.OrderApi = MagicMock(return_value=mock_order_api)
+            # Set flags manually since we're patching initialize
+            trading_provider.lighter_service._initialized = True
+            trading_provider.lighter_service._client = MagicMock()
 
             result = await trading_provider.cancel_limit_order(pair_id=1, order_index=0)
 
@@ -119,6 +128,9 @@ class TestLighterTradingProviderExtended:
         ):
             mock_order_api = MagicMock()
             mock_lighter.OrderApi = MagicMock(return_value=mock_order_api)
+            # Set flags manually since we're patching initialize
+            trading_provider.lighter_service._initialized = True
+            trading_provider.lighter_service._client = MagicMock()
 
             result = await trading_provider.update_limit_order(
                 pair_id=1, order_index=0, at_price=45000.0
@@ -129,13 +141,16 @@ class TestLighterTradingProviderExtended:
     @pytest.mark.asyncio
     async def test_get_open_trades_sdk_not_installed(self, trading_provider):
         """Test getting open trades when SDK not installed."""
-        with patch("app.services.providers.lighter.trading.lighter", None):
+        with patch("app.config.providers.lighter.lighter", None):
+            # Expect ServiceUnavailableError wrapping the ImportError
+            # Or simplified: match any part of the error
             with pytest.raises(Exception, match="lighter-python is not installed"):
                 await trading_provider.get_open_trades("0x123")
 
     @pytest.mark.asyncio
     async def test_get_orders_sdk_not_installed(self, trading_provider):
         """Test getting orders when SDK not installed."""
-        with patch("app.services.providers.lighter.trading.lighter", None):
+        # Patch the lighter module in the config class where create_api_client is defined
+        with patch("app.config.providers.lighter.lighter", None):
             with pytest.raises(Exception, match="lighter-python is not installed"):
                 await trading_provider.get_orders("0x123")

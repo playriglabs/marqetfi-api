@@ -288,7 +288,7 @@ class TestProviderFactory:
             with patch(
                 "app.services.providers.factory.ProviderFactory._get_provider_config"
             ) as mock_config:
-                with patch("app.config.get_settings") as mock_settings:
+                with patch("app.services.providers.factory.get_settings") as mock_settings:
                     mock_registry.return_value = mock_class
                     mock_config.return_value = MagicMock()
                     mock_settings.return_value = MagicMock(
@@ -311,7 +311,7 @@ class TestProviderFactory:
             with patch(
                 "app.services.providers.factory.ProviderFactory._get_provider_config"
             ) as mock_config:
-                with patch("app.config.get_settings") as mock_settings:
+                with patch("app.services.providers.factory.get_settings") as mock_settings:
                     mock_registry.return_value = mock_class
                     mock_config.return_value = MagicMock()
                     mock_settings.return_value = MagicMock(
@@ -327,9 +327,11 @@ class TestProviderFactory:
     async def test_get_auth_provider_no_config(self):
         """Test getting auth provider when none configured."""
         with patch("app.services.providers.factory.get_settings") as mock_settings:
-            mock_settings.return_value = MagicMock(
-                PRIVY_ENABLED=False, PRIVY_APP_ID="", AUTH0_DOMAIN=""
-            )
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.PRIVY_ENABLED = False
+            mock_settings_obj.PRIVY_APP_ID = ""
+            mock_settings_obj.AUTH0_DOMAIN = ""
+            mock_settings.return_value = mock_settings_obj
 
             with pytest.raises(ExternalServiceError) as exc_info:
                 await ProviderFactory.get_auth_provider()
@@ -357,7 +359,7 @@ class TestProviderFactory:
     async def test_get_provider_config_ostium(self):
         """Test getting Ostium provider config."""
         # Mock database path to fail and fall back to environment
-        with patch("app.services.providers.factory.OstiumAdminService") as mock_service:
+        with patch("app.services.ostium_admin_service.OstiumAdminService") as mock_service:
             mock_service_instance = MagicMock()
             mock_service_instance.get_active_config = AsyncMock(return_value=None)
             mock_service.return_value = mock_service_instance
@@ -392,7 +394,7 @@ class TestProviderFactory:
     async def test_get_provider_config_lighter(self):
         """Test getting Lighter provider config."""
         # Mock database path to fail and fall back to environment
-        with patch("app.services.providers.factory.ConfigurationService") as mock_service:
+        with patch("app.services.configuration_service.ConfigurationService") as mock_service:
             mock_service_instance = MagicMock()
             mock_service_instance.get_provider_config = AsyncMock(return_value=None)
             mock_service.return_value = mock_service_instance
@@ -421,7 +423,7 @@ class TestProviderFactory:
     async def test_get_provider_config_lifi(self):
         """Test getting LI-FI provider config."""
         # Mock database path to fail and fall back to environment
-        with patch("app.services.providers.factory.ConfigurationService") as mock_service:
+        with patch("app.services.configuration_service.ConfigurationService") as mock_service:
             mock_service_instance = MagicMock()
             mock_service_instance.get_provider_config = AsyncMock(return_value=None)
             mock_service.return_value = mock_service_instance
@@ -446,7 +448,7 @@ class TestProviderFactory:
     @pytest.mark.asyncio
     async def test_get_provider_config_auth0(self):
         """Test getting Auth0 provider config."""
-        with patch("app.config.get_settings") as mock_settings:
+        with patch("app.services.providers.factory.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(
                 AUTH0_DOMAIN="test.auth0.com",
                 AUTH0_CLIENT_ID="client_id",
@@ -466,7 +468,7 @@ class TestProviderFactory:
     @pytest.mark.asyncio
     async def test_get_provider_config_privy(self):
         """Test getting Privy provider config."""
-        with patch("app.config.get_settings") as mock_settings:
+        with patch("app.services.providers.factory.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(
                 PRIVY_ENABLED=True,
                 PRIVY_APP_ID="app_id",

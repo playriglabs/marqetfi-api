@@ -43,7 +43,10 @@ class TestWalletProviderFactory:
             mock_registry.get.return_value = PrivyWalletProvider
             mock_registry.list_providers.return_value = ["privy", "dynamic"]
 
-            with patch("app.services.wallet_providers.factory.PrivyWalletProvider") as mock_class:
+            with patch(
+                "app.services.wallet_providers.privy.provider.PrivyWalletProvider"
+            ) as mock_class:
+                mock_registry.get.return_value = mock_class
                 mock_class.return_value = mock_privy_provider
 
                 with patch(
@@ -76,7 +79,10 @@ class TestWalletProviderFactory:
             mock_registry.get.return_value = DynamicWalletProvider
             mock_registry.list_providers.return_value = ["privy", "dynamic"]
 
-            with patch("app.services.wallet_providers.factory.DynamicWalletProvider") as mock_class:
+            with patch(
+                "app.services.wallet_providers.dynamic.provider.DynamicWalletProvider"
+            ) as mock_class:
+                mock_registry.get.return_value = mock_class
                 mock_class.return_value = mock_dynamic_provider
 
                 with patch(
@@ -109,7 +115,10 @@ class TestWalletProviderFactory:
             mock_registry.get.return_value = PrivyWalletProvider
             mock_registry.list_providers.return_value = ["privy", "dynamic"]
 
-            with patch("app.services.wallet_providers.factory.PrivyWalletProvider") as mock_class:
+            with patch(
+                "app.services.wallet_providers.privy.provider.PrivyWalletProvider"
+            ) as mock_class:
+                mock_registry.get.return_value = mock_class
                 mock_class.return_value = mock_privy_provider
 
                 with patch(
@@ -156,7 +165,10 @@ class TestWalletProviderFactory:
             mock_registry.get.return_value = PrivyWalletProvider
             mock_registry.list_providers.return_value = ["privy", "dynamic"]
 
-            with patch("app.services.wallet_providers.factory.PrivyWalletProvider") as mock_class:
+            with patch(
+                "app.services.wallet_providers.privy.provider.PrivyWalletProvider"
+            ) as mock_class:
+                mock_registry.get.return_value = mock_class
                 mock_provider = MagicMock()
                 mock_provider.initialize = AsyncMock(side_effect=Exception("Init error"))
                 mock_class.return_value = mock_provider

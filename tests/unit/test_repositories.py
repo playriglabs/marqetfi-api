@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.models.wallet import Wallet
-from app.repositories.base import BaseRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.wallet_repository import WalletRepository
 
@@ -58,7 +57,9 @@ class TestBaseRepository:
     @pytest.mark.asyncio
     async def test_get_all(self, user_repo, mock_db):
         """Test getting all records."""
-        mock_users = [User(id=i, email=f"test{i}@example.com", username=f"user{i}") for i in range(3)]
+        mock_users = [
+            User(id=i, email=f"test{i}@example.com", username=f"user{i}") for i in range(3)
+        ]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = mock_users
         mock_db.execute = AsyncMock(return_value=mock_result)
@@ -264,4 +265,3 @@ class TestWalletRepository:
 
         assert result is not None
         assert result.provider_wallet_id == "privy_wallet_123"
-

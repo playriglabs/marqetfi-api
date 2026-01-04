@@ -19,6 +19,8 @@ SKIP_STEPS=""
 IMAGE_NAME="marqetfi-api"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 REGISTRY="${DOCKER_REGISTRY:-}"
+USE_GHCR=false
+GHCR_USER="${GITHUB_USERNAME:-}"
 AUTO_FIX=true
 MAX_RETRIES=3
 LINT_ERRORS_FILE=$(mktemp)
@@ -47,6 +49,20 @@ while [[ $# -gt 0 ]]; do
             REGISTRY="${1#*=}"
             shift
             ;;
+        --ghcr)
+            USE_GHCR=true
+            shift
+            ;;
+        --ghcr-user=*)
+            GHCR_USER="${1#*=}"
+            USE_GHCR=true
+            shift
+            ;;
+        --ghcr-user)
+            GHCR_USER="$2"
+            USE_GHCR=true
+            shift 2
+            ;;
         --no-auto-fix)
             AUTO_FIX=false
             shift
@@ -63,6 +79,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --image=<name>     Docker image name (default: marqetfi-api)"
             echo "  --tag=<tag>        Docker image tag (default: latest)"
             echo "  --registry=<url>   Docker registry URL (default: from DOCKER_REGISTRY env)"
+            echo "  --ghcr             Push to GitHub Container Registry (ghcr.io)"
+            echo "  --ghcr-user=<user> GitHub username for GHCR (default: from GITHUB_USERNAME env)"
             echo "  --no-auto-fix      Disable automatic fixing of issues (default: auto-fix enabled)"
             echo "  --max-retries=<n>  Maximum retries for flaky operations (default: 3)"
             echo "  -h, --help         Show this help message"
@@ -72,6 +90,8 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 --skip=lint,test                  # Skip lint and test"
             echo "  $0 --no-auto-fix                     # Disable auto-fix"
             echo "  $0 --image=myapp --tag=v1.0.0       # Custom image name and tag"
+            echo "  $0 --ghcr --ghcr-user=myusername    # Push to GHCR"
+            echo "  $0 --ghcr                            # Push to GHCR (uses GITHUB_USERNAME env)"
             exit 0
             ;;
         *)
@@ -429,13 +449,34 @@ run_test() {
         fi
     fi
 
+    # Check if pytest-xdist is installed (for parallel execution)
+    if ! python3 -c "import pytest_xdist" 2>/dev/null; then
+        print_warning "pytest-xdist not found. Installing..."
+        if pip install -q pytest-xdist 2>/dev/null; then
+            print_success "pytest-xdist installed"
+        else
+            print_warning "Failed to install pytest-xdist. Tests will run serially."
+        fi
+    fi
+
     # Capture test output for error parsing
-    local test_output
+    # Use a temp file to capture output while also showing it in real-time
+    local test_output_file
+    test_output_file=$(mktemp)
     local test_status=0
 
-    # Run tests and capture output
-    test_output=$(make test 2>&1)
-    test_status=$?
+    # Run tests, showing output in real-time and capturing to file
+    print_info "Executing tests (this may take a while)..."
+    if make test 2>&1 | tee "$test_output_file"; then
+        test_status=0
+    else
+        test_status=$?
+    fi
+
+    # Read captured output
+    local test_output
+    test_output=$(cat "$test_output_file" 2>/dev/null || echo "")
+    rm -f "$test_output_file"
 
     if [[ $test_status -eq 0 ]]; then
         print_success "Tests passed"
@@ -453,8 +494,17 @@ run_test() {
         while [[ $attempt -lt $MAX_RETRIES && $test_status -ne 0 ]]; do
             print_warning "Tests failed (attempt $attempt/$MAX_RETRIES). Retrying..."
             sleep $((attempt * 2))
-            test_output=$(make test 2>&1)
-            test_status=$?
+
+            # Run tests again with real-time output
+            test_output_file=$(mktemp)
+            if make test 2>&1 | tee "$test_output_file"; then
+                test_status=0
+            else
+                test_status=$?
+            fi
+            test_output=$(cat "$test_output_file" 2>/dev/null || echo "")
+            rm -f "$test_output_file"
+
             if [[ $test_status -eq 0 ]]; then
                 print_success "Tests passed"
                 > "$TEST_ERRORS_FILE"  # Clear errors
@@ -470,6 +520,23 @@ run_test() {
     fi
 }
 
+# Function to setup GHCR registry
+setup_ghcr() {
+    if [[ "$USE_GHCR" == "true" ]]; then
+        # Only set if not already set (idempotent)
+        if [[ "$REGISTRY" != "ghcr.io"* ]]; then
+            if [[ -z "$GHCR_USER" ]]; then
+                print_error "GitHub username is required for GHCR. Set GITHUB_USERNAME env var or use --ghcr-user flag"
+                return 1
+            fi
+            REGISTRY="ghcr.io/${GHCR_USER}"
+            print_info "Using GitHub Container Registry: $REGISTRY"
+        fi
+        return 0
+    fi
+    return 0
+}
+
 # Step 3: Build Docker
 run_build() {
     if should_skip "build"; then
@@ -478,6 +545,11 @@ run_build() {
     fi
 
     print_step "Build Docker"
+
+    # Setup GHCR if enabled
+    if ! setup_ghcr; then
+        return 1
+    fi
 
     # Check Docker availability
     if ! check_docker; then
@@ -526,6 +598,11 @@ run_push() {
 
     print_step "Push Docker"
 
+    # Setup GHCR if enabled
+    if ! setup_ghcr; then
+        return 1
+    fi
+
     # Check Docker availability
     if ! check_docker; then
         return 1
@@ -560,9 +637,24 @@ run_push() {
     # Check registry authentication if registry is specified
     if [[ -n "$REGISTRY" ]]; then
         print_info "Checking registry authentication..."
-        if ! docker login "$REGISTRY" >/dev/null 2>&1; then
-            print_warning "Registry authentication may be required"
-            print_info "You may need to run: docker login $REGISTRY"
+
+        # Handle GHCR authentication
+        if [[ "$USE_GHCR" == "true" ]]; then
+            if ! docker login ghcr.io >/dev/null 2>&1; then
+                print_warning "GHCR authentication may be required"
+                print_info "You need to authenticate with GitHub Container Registry:"
+                print_info "  docker login ghcr.io -u $GHCR_USER"
+                print_info "  Password: Use a GitHub Personal Access Token (PAT) with 'write:packages' permission"
+                print_info "  Create token at: https://github.com/settings/tokens"
+            else
+                print_success "GHCR authentication verified"
+            fi
+        else
+            # Generic registry authentication
+            if ! docker login "$REGISTRY" >/dev/null 2>&1; then
+                print_warning "Registry authentication may be required"
+                print_info "You may need to run: docker login $REGISTRY"
+            fi
         fi
     fi
 
@@ -582,10 +674,16 @@ run_push() {
             fi
         fi
         print_success "Docker image pushed successfully"
+        if [[ "$USE_GHCR" == "true" ]]; then
+            print_info "Image available at: https://github.com/$GHCR_USER?tab=packages"
+        fi
         return 0
     else
         print_error "Docker push failed after $MAX_RETRIES attempts"
-        if [[ -n "$REGISTRY" ]]; then
+        if [[ "$USE_GHCR" == "true" ]]; then
+            print_info "Tip: Authenticate with GHCR: docker login ghcr.io -u $GHCR_USER"
+            print_info "Use a GitHub PAT with 'write:packages' permission as password"
+        elif [[ -n "$REGISTRY" ]]; then
             print_info "Tip: Ensure you're authenticated: docker login $REGISTRY"
         fi
         return 1
@@ -617,12 +715,31 @@ main() {
     fi
     print_success "Pre-flight checks passed"
 
+    # Validate registry configuration
+    if [[ "$USE_GHCR" == "true" && -n "$REGISTRY" && "$REGISTRY" != "ghcr.io"* ]]; then
+        print_error "Cannot use both --ghcr and --registry options together"
+        print_info "Use either --ghcr or --registry, not both"
+        exit 1
+    fi
+
+    # Setup GHCR if enabled (before showing configuration)
+    if [[ "$USE_GHCR" == "true" ]]; then
+        if [[ -z "$GHCR_USER" ]]; then
+            print_error "GitHub username is required for GHCR. Set GITHUB_USERNAME env var or use --ghcr-user flag"
+            exit 1
+        fi
+        REGISTRY="ghcr.io/${GHCR_USER}"
+    fi
+
     # Show configuration
     echo ""
     echo "Configuration:"
     echo "  Image Name: $IMAGE_NAME"
     echo "  Image Tag: $IMAGE_TAG"
-    if [[ -n "$REGISTRY" ]]; then
+    if [[ "$USE_GHCR" == "true" ]]; then
+        echo "  Registry: $REGISTRY (GitHub Container Registry)"
+        echo "  GHCR User: $GHCR_USER"
+    elif [[ -n "$REGISTRY" ]]; then
         echo "  Registry: $REGISTRY"
     else
         echo "  Registry: (none - local only)"

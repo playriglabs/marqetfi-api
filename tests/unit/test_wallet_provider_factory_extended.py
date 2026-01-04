@@ -68,10 +68,12 @@ class TestWalletProviderFactoryExtended:
 
         with (
             patch(
-                "app.services.wallet_providers.factory.ConfigurationService",
+                "app.services.configuration_service.ConfigurationService",
                 return_value=mock_config_service,
             ),
-            patch("app.services.wallet_providers.factory.PrivyWalletConfig") as mock_config_class,
+            patch(
+                "app.services.wallet_providers.privy.config.PrivyWalletConfig"
+            ) as mock_config_class,
         ):
             mock_config_instance = MagicMock()
             mock_config_class.return_value = mock_config_instance
@@ -92,14 +94,14 @@ class TestWalletProviderFactoryExtended:
         )
 
         with (
+            patch("app.core.database.get_session_maker") as mock_get_session_maker,
             patch(
-                "app.services.wallet_providers.factory.get_session_maker"
-            ) as mock_get_session_maker,
-            patch(
-                "app.services.wallet_providers.factory.ConfigurationService",
+                "app.services.configuration_service.ConfigurationService",
                 return_value=mock_config_service,
             ),
-            patch("app.services.wallet_providers.factory.DynamicWalletConfig") as mock_config_class,
+            patch(
+                "app.services.wallet_providers.dynamic.config.DynamicWalletConfig"
+            ) as mock_config_class,
         ):
             mock_session = AsyncMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
@@ -119,11 +121,13 @@ class TestWalletProviderFactoryExtended:
         """Test getting provider config falling back to environment."""
         with (
             patch(
-                "app.services.wallet_providers.factory.get_session_maker",
+                "app.core.database.get_session_maker",
                 side_effect=Exception("No DB"),
             ),
-            patch("app.services.wallet_providers.factory.get_settings") as mock_get_settings,
-            patch("app.services.wallet_providers.factory.PrivyWalletConfig") as mock_config_class,
+            patch("app.config.get_settings") as mock_get_settings,
+            patch(
+                "app.services.wallet_providers.privy.config.PrivyWalletConfig"
+            ) as mock_config_class,
         ):
             mock_settings = MagicMock()
             mock_settings.PRIVY_ENABLED = True
@@ -147,7 +151,7 @@ class TestWalletProviderFactoryExtended:
     async def test_get_provider_config_unknown_provider(self):
         """Test getting config for unknown provider."""
         with patch(
-            "app.services.wallet_providers.factory.get_session_maker",
+            "app.core.database.get_session_maker",
             side_effect=Exception("No DB"),
         ):
             with pytest.raises(ValueError, match="Unknown wallet provider"):

@@ -29,9 +29,15 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_get_oauth_authorization_url_google(self, oauth_service):
         """Test getting Google OAuth authorization URL."""
-        with patch("app.services.oauth_service.cache_manager") as mock_cache, patch.object(
-            oauth_service.auth0_service, "get_authorization_url", return_value="https://auth0.com/auth"
-        ), patch("app.services.oauth_service.get_settings") as mock_settings:
+        with (
+            patch("app.services.oauth_service.cache_manager") as mock_cache,
+            patch.object(
+                oauth_service.auth0_service,
+                "get_authorization_url",
+                return_value="https://auth0.com/auth",
+            ),
+            patch("app.services.oauth_service.get_settings") as mock_settings,
+        ):
             mock_settings.return_value.AUTH0_GOOGLE_ENABLED = True
             mock_settings.return_value.AUTH0_OAUTH_REDIRECT_URI = "https://app.com/callback"
             mock_cache.set = AsyncMock()
@@ -45,9 +51,15 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_get_oauth_authorization_url_apple(self, oauth_service):
         """Test getting Apple OAuth authorization URL."""
-        with patch("app.services.oauth_service.cache_manager") as mock_cache, patch.object(
-            oauth_service.auth0_service, "get_authorization_url", return_value="https://auth0.com/auth"
-        ), patch("app.services.oauth_service.get_settings") as mock_settings:
+        with (
+            patch("app.services.oauth_service.cache_manager") as mock_cache,
+            patch.object(
+                oauth_service.auth0_service,
+                "get_authorization_url",
+                return_value="https://auth0.com/auth",
+            ),
+            patch("app.services.oauth_service.get_settings") as mock_settings,
+        ):
             mock_settings.return_value.AUTH0_APPLE_ENABLED = True
             mock_settings.return_value.AUTH0_OAUTH_REDIRECT_URI = "https://app.com/callback"
             mock_cache.set = AsyncMock()
@@ -66,16 +78,31 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_success(self, oauth_service, db_session, sample_user):
         """Test successful OAuth callback handling."""
-        with patch("app.services.oauth_service.cache_manager") as mock_cache, patch.object(
-            oauth_service.auth0_service, "exchange_code_for_tokens", return_value={"access_token": "token"}
-        ), patch.object(
-            oauth_service.auth0_service, "get_userinfo", return_value={"sub": "google-oauth2|123"}
-        ), patch.object(
-            oauth_service.auth_service, "create_or_update_user_from_auth0", return_value=sample_user
-        ), patch.object(
-            oauth_service.auth_service, "_store_oauth_connection", new_callable=AsyncMock
-        ), patch.object(
-            oauth_service.auth_service, "_generate_tokens", return_value={"access_token": "token"}
+        with (
+            patch("app.services.oauth_service.cache_manager") as mock_cache,
+            patch.object(
+                oauth_service.auth0_service,
+                "exchange_code_for_tokens",
+                return_value={"access_token": "token"},
+            ),
+            patch.object(
+                oauth_service.auth0_service,
+                "get_userinfo",
+                return_value={"sub": "google-oauth2|123"},
+            ),
+            patch.object(
+                oauth_service.auth_service,
+                "create_or_update_user_from_auth0",
+                return_value=sample_user,
+            ),
+            patch.object(
+                oauth_service.auth_service, "_store_oauth_connection", new_callable=AsyncMock
+            ),
+            patch.object(
+                oauth_service.auth_service,
+                "_generate_tokens",
+                return_value={"access_token": "token"},
+            ),
         ):
             mock_cache.get = AsyncMock(
                 return_value={"provider": "google", "redirect_uri": "https://app.com/callback"}
@@ -103,13 +130,22 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_link_oauth_account_success(self, oauth_service, db_session, sample_user):
         """Test successfully linking OAuth account."""
-        with patch.object(
-            oauth_service.auth0_service, "exchange_code_for_tokens", return_value={"access_token": "token"}
-        ), patch.object(
-            oauth_service.auth0_service, "get_userinfo", return_value={"sub": "google-oauth2|123"}
-        ), patch.object(
-            oauth_service.auth_service, "_store_oauth_connection", return_value=MagicMock()
-        ), patch("app.services.oauth_service.get_settings") as mock_settings:
+        with (
+            patch.object(
+                oauth_service.auth0_service,
+                "exchange_code_for_tokens",
+                return_value={"access_token": "token"},
+            ),
+            patch.object(
+                oauth_service.auth0_service,
+                "get_userinfo",
+                return_value={"sub": "google-oauth2|123"},
+            ),
+            patch.object(
+                oauth_service.auth_service, "_store_oauth_connection", return_value=MagicMock()
+            ),
+            patch("app.services.oauth_service.get_settings") as mock_settings,
+        ):
             mock_settings.return_value.AUTH0_OAUTH_REDIRECT_URI = "https://app.com/callback"
 
             result = await oauth_service.link_oauth_account(
@@ -121,17 +157,35 @@ class TestOAuthService:
     @pytest.mark.asyncio
     async def test_unlink_oauth_account_success(self, oauth_service, db_session, sample_user):
         """Test successfully unlinking OAuth account."""
+        # Don't import OAuthConnection - just use a plain MagicMock
         mock_connection = MagicMock()
         mock_connection.provider = "google"
+        mock_connection.user_id = 1
 
-        with patch("sqlalchemy.ext.asyncio.AsyncSession.execute") as mock_execute:
-            mock_result = MagicMock()
-            mock_result.scalar_one_or_none.return_value = mock_connection
-            mock_execute.return_value = mock_result
+        # Mock the execute method to return a result with scalar_one_or_none
+        # scalar_one_or_none() is synchronous, not async
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none = MagicMock(return_value=mock_connection)
 
-            await oauth_service.unlink_oauth_account(db=db_session, user=sample_user, provider="google")
+        # In SQLAlchemy async, delete() is actually a method on the session
+        # but the code uses await db.delete(), which suggests it might be a custom method
+        # or the code is incorrect. Let's mock it as a regular method that can be awaited
+        with (
+            patch.object(
+                db_session, "execute", new_callable=AsyncMock, return_value=mock_result
+            ) as mock_execute,
+            patch.object(db_session, "delete", new_callable=AsyncMock) as mock_delete,
+            patch.object(db_session, "commit", new_callable=AsyncMock) as mock_commit,
+        ):
+            await oauth_service.unlink_oauth_account(
+                db=db_session, user=sample_user, provider="google"
+            )
 
             mock_execute.assert_called_once()
+            # Verify delete was called - it should be called with the connection
+            # But since it's AsyncMock, we need to check the call differently
+            assert mock_delete.called
+            mock_commit.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_unlink_oauth_account_not_found(self, oauth_service, db_session, sample_user):
@@ -157,7 +211,9 @@ class TestOAuthService:
             mock_result.scalars.return_value.all.return_value = [mock_connection]
             mock_execute.return_value = mock_result
 
-            connections = await oauth_service.get_user_oauth_connections(db=db_session, user=sample_user)
+            connections = await oauth_service.get_user_oauth_connections(
+                db=db_session, user=sample_user
+            )
 
             assert len(connections) == 1
             assert connections[0].provider == "google"

@@ -109,7 +109,9 @@ class TestTradingServiceExtended:
     @pytest.mark.asyncio
     async def test_update_limit_order_success(self, trading_service, mock_trading_provider):
         """Test updating limit order successfully."""
-        result = await trading_service.update_limit_order(pair_id=1, order_index=0, at_price=45000.0)
+        result = await trading_service.update_limit_order(
+            pair_id=1, order_index=0, at_price=45000.0
+        )
 
         assert result["status"] == "updated"
         mock_trading_provider.update_limit_order.assert_called_once_with(1, 0, 45000.0)
@@ -136,8 +138,12 @@ class TestTradingServiceExtended:
         mock_provider = MagicMock()
         mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
 
-        with patch("app.services.trading_service.get_provider_router", return_value=mock_router), patch(
-            "app.services.trading_service.ProviderFactory.get_trading_provider", return_value=mock_provider
+        with (
+            patch("app.services.trading_service.get_provider_router", return_value=mock_router),
+            patch(
+                "app.services.providers.factory.ProviderFactory.get_trading_provider",
+                return_value=mock_provider,
+            ),
         ):
             service = TradingService(trading_provider=None)
             service.router = mock_router
@@ -154,8 +160,12 @@ class TestTradingServiceExtended:
         mock_provider = MagicMock()
         mock_provider.get_pairs = AsyncMock(return_value=[{"pair_id": 1, "symbol": "BTCUSDT"}])
 
-        with patch("app.services.trading_service.get_provider_router", return_value=mock_router), patch(
-            "app.services.trading_service.ProviderFactory.get_trading_provider", return_value=mock_provider
+        with (
+            patch("app.services.trading_service.get_provider_router", return_value=mock_router),
+            patch(
+                "app.services.providers.factory.ProviderFactory.get_trading_provider",
+                return_value=mock_provider,
+            ),
         ):
             service = TradingService(trading_provider=None)
             service.router = mock_router
@@ -172,4 +182,3 @@ class TestTradingServiceExtended:
 
         with pytest.raises(ValueError, match="Trading provider not configured"):
             await service.get_pairs()
-

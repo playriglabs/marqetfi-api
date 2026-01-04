@@ -14,6 +14,7 @@ from app.core.cache import cache_manager
 from app.models.auth import WalletConnection
 from app.models.enums import WalletType
 from app.models.user import User
+from app.repositories.wallet_repository import WalletRepository
 from app.services.user_service import UserService
 
 settings = get_settings()
@@ -202,7 +203,6 @@ class WalletAuthService:
             ValueError: If provider is not supported or wallet creation fails
         """
         from app.models.wallet import Wallet
-        from app.repositories.wallet_repository import WalletRepository
         from app.services.wallet_providers.factory import WalletProviderFactory
 
         # Validate provider
