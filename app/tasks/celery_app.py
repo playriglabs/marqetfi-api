@@ -12,6 +12,7 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.tasks.risk_monitoring_tasks",
+        "app.tasks.order_monitoring_tasks",
     ],
 )
 
@@ -42,5 +43,10 @@ celery_app.conf.beat_schedule = {
     "monitor-position-risk": {
         "task": "monitor_position_risk",
         "schedule": 30.0,  # 30 seconds
+    },
+    # Order monitoring: Run every 1 second
+    "monitor-orders": {
+        "task": "monitor_orders",
+        "schedule": 1.0,  # 1 second
     },
 }

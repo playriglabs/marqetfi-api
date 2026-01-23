@@ -56,3 +56,20 @@ class OrderRepository(BaseRepository[Order]):
             )
         )
         return result.scalar_one_or_none()  # type: ignore
+
+    async def get_all_by_status(
+        self,
+        db: AsyncSession,
+        status: OrderStatus,
+        skip: int = 0,
+        limit: int = 1000,
+    ) -> list[Order]:
+        """Get all orders by status across all users."""
+        result = await db.execute(
+            select(Order)
+            .where(Order.status == status.value)
+            .offset(skip)
+            .limit(limit)
+            .order_by(Order.created_at.desc())
+        )
+        return list(result.scalars().all())
