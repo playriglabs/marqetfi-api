@@ -8,7 +8,7 @@ settings = get_settings()
 
 celery_app = Celery(
     "app",
-    broker=settings.REDIS_URL,
+    broker=settings.CELERY_BROKER_URL,
     backend=settings.REDIS_URL,
     include=[
         "app.tasks.risk_monitoring_tasks",
