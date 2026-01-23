@@ -21,6 +21,12 @@ from app.schemas.trading import (
 )
 from app.schemas.user import UserCreate, UserResponse
 from app.schemas.wallet import WalletConnectionResponse, WalletCreate, WalletResponse
+from app.schemas.webhook import (
+    WebhookConfigCreate,
+    WebhookConfigResponse,
+    WebhookConfigUpdate,
+    WebhookDeliveryResponse,
+)
 
 __all__ = [
     # Auth
@@ -44,6 +50,11 @@ __all__ = [
     "WalletCreate",
     "WalletResponse",
     "WalletConnectionResponse",
+    # Webhook
+    "WebhookConfigCreate",
+    "WebhookConfigUpdate",
+    "WebhookConfigResponse",
+    "WebhookDeliveryResponse",
     # Analytics
     "TradeHistoryResponse",
     "UserStatsResponse",
