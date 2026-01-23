@@ -33,10 +33,13 @@ class OrderCreate(BaseModel):
     asset: str
     quote: str
     quantity: Decimal
-    price: Decimal | None = None
+    price: Decimal | None = None  # For LIMIT orders
     leverage: int = Field(..., ge=1)
     tp: Decimal | None = None
     sl: Decimal | None = None
+    stop_price: Decimal | None = None  # For STOP_LOSS, TAKE_PROFIT, TRAILING_STOP, OCO
+    trailing_offset: Decimal | None = None  # For TRAILING_STOP
+    linked_order_id: int | None = None  # For OCO
 
 
 class TradeResponse(BaseModel):
@@ -67,7 +70,27 @@ class TradeUpdate(BaseModel):
 class OrderResponse(BaseModel):
     """Schema for order response."""
 
-    order: dict[str, Any] = Field(..., description="Order details")
+    id: int
+    user_id: int
+    order_type: OrderType
+    side: OrderSide
+    asset: str
+    quote: str
+    quantity: Decimal
+    price: Decimal | None
+    leverage: int
+    status: str
+    provider: str
+    stop_price: Decimal | None
+    trailing_offset: Decimal | None
+    linked_order_id: int | None
+    is_trailing_active: bool
+    created_at: datetime
+    updated_at: datetime
+    filled_at: datetime | None
+    cancelled_at: datetime | None
+
+    model_config = {"from_attributes": True}
 
 
 class PositionResponse(BaseModel):

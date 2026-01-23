@@ -1,13 +1,16 @@
 """Trading endpoints."""
 
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_active_user, get_db, get_trading_service
+from app.models.enums import OrderStatus
 from app.models.user import User
-from app.schemas.trading import PairResponse, TradeCreate, TradeResponse
+from app.repositories.order_repository import OrderRepository
+from app.schemas.trading import OrderCreate, OrderResponse, PairResponse, TradeCreate, TradeResponse
 from app.services.trading_service import TradingService
 
 router = APIRouter()
@@ -258,3 +261,115 @@ async def get_pairs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get pairs: {str(e)}",
         ) from e
+
+
+@router.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+async def create_order(
+    order_data: OrderCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> OrderResponse:
+    """Create a new order with advanced order type support."""
+    advanced_order_types = ["stop_loss", "take_profit", "trailing_stop", "oco"]
+
+    if order_data.order_type.value in advanced_order_types:
+        if not order_data.stop_price:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="stop_price required for advanced orders",
+            )
+
+    if order_data.order_type.value == "trailing_stop":
+        if not order_data.trailing_offset:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="trailing_offset required for trailing stop orders",
+            )
+
+    if order_data.order_type.value == "oco":
+        if not order_data.linked_order_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="linked_order_id required for OCO orders",
+            )
+
+    order_repo = OrderRepository()
+    order = await order_repo.create(
+        db,
+        {
+            "user_id": current_user.id,
+            "asset": order_data.asset,
+            "quote": order_data.quote,
+            "side": order_data.side,
+            "order_type": order_data.order_type,
+            "quantity": order_data.quantity,
+            "price": order_data.price,
+            "leverage": order_data.leverage,
+            "stop_price": order_data.stop_price,
+            "trailing_offset": order_data.trailing_offset,
+            "linked_order_id": order_data.linked_order_id,
+            "status": OrderStatus.PENDING,
+            "provider": "ostium",
+        },
+    )
+
+    if order.order_type.value in advanced_order_types:
+        from app.services.order_monitoring_service import OrderMonitoringService
+        from app.services.price_stream_service import price_stream_service
+
+        monitoring = OrderMonitoringService(db, price_stream_service)
+        await monitoring.monitor_order(order.id)
+
+    return OrderResponse.model_validate(order)
+
+
+@router.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_order(
+    order_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Cancel a pending order."""
+    order_repo = OrderRepository()
+    order = await order_repo.get(db, order_id)
+
+    if not order or order.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only cancel pending orders",
+        )
+
+    order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.utcnow()
+    await db.commit()
+
+    advanced_order_types = ["stop_loss", "take_profit", "trailing_stop", "oco"]
+
+    if order.order_type.value in advanced_order_types:
+        from app.services.order_monitoring_service import OrderMonitoringService
+        from app.services.price_stream_service import price_stream_service
+
+        monitoring = OrderMonitoringService(db, price_stream_service)
+        await monitoring.stop_monitoring_order(order_id)
+
+
+@router.get("/orders/list", response_model=list[OrderResponse])
+async def list_user_orders(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    status_filter: OrderStatus | None = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[OrderResponse]:
+    """List orders for the current user."""
+    order_repo = OrderRepository()
+
+    if status_filter:
+        orders = await order_repo.get_by_status(db, current_user.id, status_filter, skip, limit)
+    else:
+        orders = await order_repo.get_by_user(db, current_user.id, skip, limit)
+
+    return [OrderResponse.model_validate(order) for order in orders]
