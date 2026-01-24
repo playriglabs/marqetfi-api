@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 from celery import Task
+from sqlalchemy import select
 
 from app.tasks.celery_app import celery_app
 
@@ -177,4 +178,56 @@ def deliver_webhook_task(self: Task, delivery_id: str) -> dict[str, Any]:
             "status": "error",
             "delivery_id": delivery_id,
             "error": str(e),
+        }
+
+
+@celery_app.task(name="cleanup_old_deliveries")
+def cleanup_old_deliveries_task() -> dict[str, Any]:
+    """Clean up webhook delivery records older than 30 days.
+
+    Runs daily to maintain database performance and comply with retention policy.
+
+    Returns:
+        Cleanup result dictionary with count of deleted records
+    """
+    from datetime import timedelta
+
+    from app.core.database import get_session_maker
+    from app.models.webhook import WebhookDelivery
+
+    async def _cleanup() -> dict[str, Any]:
+        """Async cleanup logic."""
+        AsyncSessionLocal = get_session_maker()
+        async with AsyncSessionLocal() as db:
+            cutoff_date = datetime.utcnow() - timedelta(days=30)
+
+            result = await db.execute(
+                select(WebhookDelivery).where(WebhookDelivery.created_at < cutoff_date)
+            )
+            old_deliveries = list(result.scalars().all())
+
+            deleted_count = len(old_deliveries)
+
+            for delivery in old_deliveries:
+                await db.delete(delivery)
+
+            await db.commit()
+
+            logger.info(f"Deleted {deleted_count} webhook deliveries older than 30 days")
+
+            return {
+                "status": "completed",
+                "deleted_count": deleted_count,
+                "cutoff_date": cutoff_date.isoformat(),
+            }
+
+    try:
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(_cleanup())
+    except Exception as e:
+        logger.error(f"Fatal error in cleanup_old_deliveries task: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "deleted_count": 0,
         }

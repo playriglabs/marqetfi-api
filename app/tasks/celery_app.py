@@ -50,4 +50,9 @@ celery_app.conf.beat_schedule = {
         "task": "monitor_orders",
         "schedule": 1.0,  # 1 second
     },
+    # Webhook cleanup: Run daily at midnight
+    "cleanup-old-deliveries": {
+        "task": "cleanup_old_deliveries",
+        "schedule": 86400.0,  # 24 hours (daily)
+    },
 }
