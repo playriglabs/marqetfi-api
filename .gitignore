@@ -37,6 +37,7 @@ temp/
 .cursorrules
 openspec
 AGENTS.md
+.sisyphus
 
 # Test generation
 .coverage
