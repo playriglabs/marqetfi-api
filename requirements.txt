@@ -25,7 +25,7 @@ auth0-python
 loguru
 
 # HTTP Client
-httpx
+httpx<0.28  # Pin due to TestClient compatibility with FastAPI 0.109
 
 # CLI
 typer

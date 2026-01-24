@@ -3,8 +3,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,8 +26,8 @@ class WebhookConfiguration(Base):
         String(255), nullable=False
     )  # For HMAC signature verification
     event_types: Mapped[list[str]] = mapped_column(
-        ARRAY(String(50)), nullable=False
-    )  # ["trade.executed", "position.updated", etc.]
+        JSON, nullable=False
+    )  # ["trade.executed", "position.updated", etc.] - stored as JSON for SQLite compatibility
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_delivery_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
