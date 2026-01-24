@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -41,6 +41,12 @@ class Order(Base):
         Numeric(36, 18), default=Decimal("0"), nullable=False
     )
     average_fill_price: Mapped[Decimal | None] = mapped_column(Numeric(36, 18), nullable=True)
+    stop_price: Mapped[Decimal | None] = mapped_column(Numeric(36, 18), nullable=True)
+    trailing_offset: Mapped[Decimal | None] = mapped_column(Numeric(36, 18), nullable=True)
+    linked_order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("orders.id", ondelete="SET NULL"), nullable=True
+    )
+    is_trailing_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

@@ -21,6 +21,7 @@ from app.models.risk import RiskEvent, RiskLimit
 from app.models.trading import Order, Position, Trade
 from app.models.user import User
 from app.models.wallet import Wallet
+from app.models.webhook import WebhookConfiguration, WebhookDelivery
 
 __all__ = [
     # User
@@ -50,6 +51,9 @@ __all__ = [
     # Risk
     "RiskLimit",
     "RiskEvent",
+    # Webhook
+    "WebhookConfiguration",
+    "WebhookDelivery",
     # Enums
     "AuthMethod",
     "WalletType",

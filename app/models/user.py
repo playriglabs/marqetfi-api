@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.risk import RiskEvent, RiskLimit
     from app.models.trading import Order, Position, Trade
     from app.models.wallet import Wallet
+    from app.models.webhook import WebhookConfiguration
 
 
 class User(Base):
@@ -100,6 +101,9 @@ class User(Base):
     )
     risk_events: Mapped[list["RiskEvent"]] = relationship(
         "RiskEvent", back_populates="user", cascade="all, delete-orphan"
+    )
+    webhook_configurations: Mapped[list["WebhookConfiguration"]] = relationship(
+        "WebhookConfiguration", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
