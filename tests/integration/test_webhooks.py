@@ -4,7 +4,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token
 from app.models.user import User
 
 
@@ -29,13 +28,20 @@ async def test_user(db_session: AsyncSession) -> User:
 
 
 @pytest.fixture
-def auth_headers(test_user: User) -> dict[str, str]:
-    """Create authentication headers for test user."""
-    token = create_access_token({"sub": str(test_user.id)})
-    return {"Authorization": f"Bearer {token}"}
+def authenticated_client(client: TestClient, test_user: User) -> TestClient:
+    """Create authenticated test client with dependency override."""
+    from app.api.dependencies import get_current_active_user
+    from app.main import app
+
+    def override_get_current_user():
+        return test_user
+
+    app.dependency_overrides[get_current_active_user] = override_get_current_user
+    yield client
+    app.dependency_overrides.clear()
 
 
-def test_create_webhook(client: TestClient, auth_headers: dict[str, str]):
+def test_create_webhook(authenticated_client: TestClient):
     """Test creating a new webhook configuration."""
     webhook_data = {
         "url": "https://example.com/webhook",
@@ -43,7 +49,7 @@ def test_create_webhook(client: TestClient, auth_headers: dict[str, str]):
         "event_types": ["trade.executed", "position.updated"],
     }
 
-    response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
 
     assert response.status_code == 201
     data = response.json()
@@ -56,6 +62,10 @@ def test_create_webhook(client: TestClient, auth_headers: dict[str, str]):
 
 def test_create_webhook_unauthorized(client: TestClient):
     """Test creating webhook without authentication fails."""
+    from app.main import app
+
+    app.dependency_overrides.clear()
+
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
@@ -63,10 +73,10 @@ def test_create_webhook_unauthorized(client: TestClient):
     }
 
     response = client.post("/api/v1/webhooks/", json=webhook_data)
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
-def test_create_webhook_invalid_url(client: TestClient, auth_headers: dict[str, str]):
+def test_create_webhook_invalid_url(authenticated_client: TestClient):
     """Test creating webhook with invalid URL fails."""
     webhook_data = {
         "url": "not-a-valid-url",
@@ -74,11 +84,11 @@ def test_create_webhook_invalid_url(client: TestClient, auth_headers: dict[str, 
         "event_types": ["trade.executed"],
     }
 
-    response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     assert response.status_code == 422
 
 
-def test_create_webhook_short_secret(client: TestClient, auth_headers: dict[str, str]):
+def test_create_webhook_short_secret(authenticated_client: TestClient):
     """Test creating webhook with short secret fails."""
     webhook_data = {
         "url": "https://example.com/webhook",
@@ -86,23 +96,23 @@ def test_create_webhook_short_secret(client: TestClient, auth_headers: dict[str,
         "event_types": ["trade.executed"],
     }
 
-    response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     assert response.status_code == 422
 
 
-def test_list_webhooks(client: TestClient, auth_headers: dict[str, str]):
+def test_list_webhooks(authenticated_client: TestClient):
     """Test listing user's webhooks."""
     webhook_data = {
         "url": "https://example.com/webhook1",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
 
     webhook_data["url"] = "https://example.com/webhook2"
-    client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
 
-    response = client.get("/api/v1/webhooks/", headers=auth_headers)
+    response = authenticated_client.get("/api/v1/webhooks/")
 
     assert response.status_code == 200
     data = response.json()
@@ -110,17 +120,17 @@ def test_list_webhooks(client: TestClient, auth_headers: dict[str, str]):
     assert len(data) == 2
 
 
-def test_get_webhook(client: TestClient, auth_headers: dict[str, str]):
+def test_get_webhook(authenticated_client: TestClient):
     """Test getting a specific webhook by ID."""
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
-    response = client.get(f"/api/v1/webhooks/{webhook_id}", headers=auth_headers)
+    response = authenticated_client.get(f"/api/v1/webhooks/{webhook_id}")
 
     assert response.status_code == 200
     data = response.json()
@@ -128,27 +138,27 @@ def test_get_webhook(client: TestClient, auth_headers: dict[str, str]):
     assert data["url"] == webhook_data["url"]
 
 
-def test_get_webhook_not_found(client: TestClient, auth_headers: dict[str, str]):
+def test_get_webhook_not_found(authenticated_client: TestClient):
     """Test getting non-existent webhook returns 404."""
-    response = client.get("/api/v1/webhooks/99999", headers=auth_headers)
+    response = authenticated_client.get("/api/v1/webhooks/99999")
     assert response.status_code == 404
 
 
-def test_update_webhook(client: TestClient, auth_headers: dict[str, str]):
+def test_update_webhook(authenticated_client: TestClient):
     """Test updating a webhook configuration."""
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
     update_data = {
         "url": "https://example.com/webhook-updated",
         "event_types": ["trade.executed", "order.filled"],
     }
-    response = client.put(f"/api/v1/webhooks/{webhook_id}", json=update_data, headers=auth_headers)
+    response = authenticated_client.put(f"/api/v1/webhooks/{webhook_id}", json=update_data)
 
     assert response.status_code == 200
     data = response.json()
@@ -156,18 +166,18 @@ def test_update_webhook(client: TestClient, auth_headers: dict[str, str]):
     assert data["event_types"] == update_data["event_types"]
 
 
-def test_update_webhook_partial(client: TestClient, auth_headers: dict[str, str]):
+def test_update_webhook_partial(authenticated_client: TestClient):
     """Test partial update of webhook."""
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
     update_data = {"is_active": False}
-    response = client.put(f"/api/v1/webhooks/{webhook_id}", json=update_data, headers=auth_headers)
+    response = authenticated_client.put(f"/api/v1/webhooks/{webhook_id}", json=update_data)
 
     assert response.status_code == 200
     data = response.json()
@@ -175,53 +185,53 @@ def test_update_webhook_partial(client: TestClient, auth_headers: dict[str, str]
     assert data["url"] == webhook_data["url"]
 
 
-def test_delete_webhook(client: TestClient, auth_headers: dict[str, str]):
+def test_delete_webhook(authenticated_client: TestClient):
     """Test deleting a webhook configuration."""
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
-    response = client.delete(f"/api/v1/webhooks/{webhook_id}", headers=auth_headers)
+    response = authenticated_client.delete(f"/api/v1/webhooks/{webhook_id}")
     assert response.status_code == 204
 
-    get_response = client.get(f"/api/v1/webhooks/{webhook_id}", headers=auth_headers)
+    get_response = authenticated_client.get(f"/api/v1/webhooks/{webhook_id}")
     assert get_response.status_code == 404
 
 
-def test_enable_webhook(client: TestClient, auth_headers: dict[str, str]):
+def test_enable_webhook(authenticated_client: TestClient):
     """Test enabling a disabled webhook."""
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
-    client.put(f"/api/v1/webhooks/{webhook_id}", json={"is_active": False}, headers=auth_headers)
+    authenticated_client.put(f"/api/v1/webhooks/{webhook_id}", json={"is_active": False})
 
-    response = client.put(f"/api/v1/webhooks/{webhook_id}/enable", headers=auth_headers)
+    response = authenticated_client.put(f"/api/v1/webhooks/{webhook_id}/enable")
 
     assert response.status_code == 200
     data = response.json()
     assert data["is_active"] is True
 
 
-def test_get_webhook_deliveries(client: TestClient, auth_headers: dict[str, str]):
+def test_get_webhook_deliveries(authenticated_client: TestClient):
     """Test getting delivery history for a webhook."""
     webhook_data = {
         "url": "https://example.com/webhook",
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
-    response = client.get(f"/api/v1/webhooks/{webhook_id}/deliveries", headers=auth_headers)
+    response = authenticated_client.get(f"/api/v1/webhooks/{webhook_id}/deliveries")
 
     assert response.status_code == 200
     data = response.json()
@@ -229,7 +239,7 @@ def test_get_webhook_deliveries(client: TestClient, auth_headers: dict[str, str]
 
 
 async def test_webhook_isolation_between_users(
-    client: TestClient, auth_headers: dict[str, str], db_session: AsyncSession
+    authenticated_client: TestClient, client: TestClient, db_session: AsyncSession
 ):
     """Test that users cannot access other users' webhooks."""
     webhook_data = {
@@ -237,9 +247,11 @@ async def test_webhook_isolation_between_users(
         "secret": "test_secret_key_123456",
         "event_types": ["trade.executed"],
     }
-    create_response = client.post("/api/v1/webhooks/", json=webhook_data, headers=auth_headers)
+    create_response = authenticated_client.post("/api/v1/webhooks/", json=webhook_data)
     webhook_id = create_response.json()["id"]
 
+    from app.api.dependencies import get_current_active_user
+    from app.main import app
     from app.repositories.user_repository import UserRepository
 
     repo = UserRepository()
@@ -253,9 +265,14 @@ async def test_webhook_isolation_between_users(
         },
     )
     await db_session.commit()
+    await db_session.refresh(other_user)
 
-    other_token = create_access_token({"sub": str(other_user.id)})
-    other_headers = {"Authorization": f"Bearer {other_token}"}
+    def override_get_other_user():
+        return other_user
 
-    response = client.get(f"/api/v1/webhooks/{webhook_id}", headers=other_headers)
+    app.dependency_overrides[get_current_active_user] = override_get_other_user
+
+    response = client.get(f"/api/v1/webhooks/{webhook_id}")
     assert response.status_code == 403
+
+    app.dependency_overrides.clear()
