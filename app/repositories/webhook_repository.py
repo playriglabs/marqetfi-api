@@ -104,8 +104,19 @@ class WebhookDeliveryRepository(BaseRepository[WebhookDelivery]):
         self,
         db: AsyncSession,
         delivery_id: str,
+    ) -> WebhookDelivery | None:
+        """Get delivery by unique delivery ID."""
+        result = await db.execute(
+            select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
+        )
+        return result.scalar_one_or_none()  # type: ignore
+
+    async def get_all_by_delivery_id(
+        self,
+        db: AsyncSession,
+        delivery_id: str,
     ) -> list[WebhookDelivery]:
-        """Get all delivery attempts by delivery ID."""
+        """Get all delivery attempts by delivery ID (for historical tracking)."""
         result = await db.execute(
             select(WebhookDelivery)
             .where(WebhookDelivery.delivery_id == delivery_id)
@@ -119,7 +130,7 @@ class WebhookDeliveryRepository(BaseRepository[WebhookDelivery]):
         delivery_id: str,
     ) -> int:
         """Count failed attempts for a delivery ID."""
-        deliveries = await self.get_by_delivery_id(db, delivery_id)
+        deliveries = await self.get_all_by_delivery_id(db, delivery_id)
         return sum(1 for d in deliveries if not d.success)
 
     async def get_recent_failures(

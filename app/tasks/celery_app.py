@@ -13,6 +13,7 @@ celery_app = Celery(
     include=[
         "app.tasks.risk_monitoring_tasks",
         "app.tasks.order_monitoring_tasks",
+        "app.tasks.webhook_delivery_tasks",
     ],
 )
 
